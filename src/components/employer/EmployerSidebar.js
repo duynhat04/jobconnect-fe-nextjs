@@ -15,6 +15,7 @@ export default function EmployerSidebar() {
     { name: "Tổng quan", path: "/employer/dashboard", icon: LayoutDashboard },
     { name: "Quản lý tin đăng", path: "/employer/jobs", icon: Briefcase },
     { name: "Quản lý CV", path: "/employer/candidates", icon: FileText },
+    { name: "AI hỗ trợ tuyển dụng", path: "/employer/ai", icon: Gem },
     { name: "Hồ sơ công ty", path: "/employer/profile", icon: Building },
     { name: "Gói dịch vụ", path: "/employer/packages", icon: Gem },
   ];

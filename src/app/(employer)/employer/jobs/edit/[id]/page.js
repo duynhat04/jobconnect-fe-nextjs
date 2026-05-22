@@ -17,7 +17,7 @@ export default function EditJobPage() {
 
   const [formData, setFormData] = useState({
     title: '',
-    category: '', // <--- ĐÃ THÊM
+    category: '', 
     location: '',
     salary: '',
     description: '',
@@ -32,7 +32,7 @@ export default function EditJobPage() {
 
         setFormData({
           title: data.title || '',
-          category: data.category || '', // <--- ĐÃ THÊM: Lấy category từ BE đổ vào
+          category: data.category || '', 
           location: data.location || '',
           salary: data.salary ? data.salary.toString() : '',
           description: data.description || '',

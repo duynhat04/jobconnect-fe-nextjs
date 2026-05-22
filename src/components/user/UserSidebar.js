@@ -14,6 +14,7 @@ const menuItems = [
   { name: 'Việc làm đã ứng tuyển', href: '/applied-jobs', icon: BriefcaseBusiness },
   { name: 'Thông báo việc làm', href: '/notifications', icon: Bell },
   { name: 'Thông tin tài khoản', href: '/profile', icon: Settings },
+  { name: 'Trợ lý AI', href: '/ai', icon: Menu }
 ];
 
 export default function UserSidebar() {
