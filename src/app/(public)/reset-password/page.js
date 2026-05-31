@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import api from "@/services/axios";
@@ -76,7 +76,7 @@ const passwordRules = [
   },
 ];
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -169,6 +169,7 @@ export default function ResetPasswordPage() {
     }
 
     const strongPasswordError = validateStrongPassword(form.newPassword);
+
     if (strongPasswordError) {
       showError(strongPasswordError);
       return;
@@ -430,5 +431,22 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-green-50 px-4">
+          <div className="flex items-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-semibold text-emerald-600 shadow-lg">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Đang tải trang đặt lại mật khẩu...
+          </div>
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
