@@ -26,7 +26,11 @@ api.interceptors.request.use(
       config.url?.includes("/users/login") ||
       config.url?.includes("/users/register") ||
       config.url?.includes("/users/verify-otp") ||
-      config.url?.includes("/users/resend-otp")
+      config.url?.includes("/users/resend-otp") ||
+      config.url?.includes("/users/forgot-password") ||
+      config.url?.includes("/users/reset-password") ||
+      config.url?.includes("/users/google-login") ||
+      config.url?.includes("/users/refresh-token")
     ) {
       return config;
     }

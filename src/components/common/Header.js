@@ -3,63 +3,93 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Briefcase, Building2, UserCircle, LogOut, Menu, X, Rocket, Clock } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  UserCircle,
+  LogOut,
+  Menu,
+  X,
+  Rocket,
+  Clock,
+  Home,
+  LogIn,
+  UserPlus,
+  Newspaper,
+  Info,
+  Bell,
+} from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell";
-import EmployerRegisterModal from "@/components/common/EmployerRegisterModal"; 
+import EmployerRegisterModal from "@/components/common/EmployerRegisterModal";
 import { useSystemSettings } from "@/hooks/useSystemSettings";
-import { useAuth } from "@/hooks/useAuth"; 
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { clearAuthStore } = useAuth(); 
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); 
-  const [userRole, setUserRole] = useState(null);
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [companyStatus, setCompanyStatus] = useState("NONE"); 
-
+  const { clearAuthStore } = useAuth();
   const { settings, isLoading: isSettingsLoading } = useSystemSettings();
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [companyStatus, setCompanyStatus] = useState("NONE");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("accessToken");
+
     const userString = localStorage.getItem("user");
 
-    if (token) {
-      setIsLoggedIn(true);
-      if (userString) {
-        try {
-          const userObj = JSON.parse(userString);
-          
-          const safeRole = String(userObj.role || "").toUpperCase();
-          setUserRole(safeRole);
-          
-          setCompanyStatus(userObj.companyStatus || "NONE"); 
-        } catch (error) {
-          console.error("Lỗi parse dữ liệu user:", error);
-        }
-      }
-    }
-    else {
+    if (!token) {
       setIsLoggedIn(false);
       setUserRole(null);
+      setCompanyStatus("NONE");
+      return;
+    }
+
+    setIsLoggedIn(true);
+
+    if (userString && userString !== "undefined" && userString !== "null") {
+      try {
+        const userObj = JSON.parse(userString);
+
+        const safeRole = String(userObj.role || "").toUpperCase();
+
+        setUserRole(safeRole);
+        setCompanyStatus(userObj.companyStatus || "NONE");
+      } catch (error) {
+        console.error("Lỗi parse dữ liệu user:", error);
+
+        setUserRole(null);
+        setCompanyStatus("NONE");
+      }
     }
   }, [pathname]);
 
-  const handleLogout = async () => {
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
+
+  const handleLogout = () => {
     try {
-      const keysToRemove = ["token", "refreshToken", "user"];
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      const keysToRemove = ["token", "accessToken", "refreshToken", "user"];
+
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
 
       setIsLoggedIn(false);
       setUserRole(null);
+      setCompanyStatus("NONE");
+      setIsMenuOpen(false);
 
-      if (typeof clearAuthStore === 'function') {
+      if (typeof clearAuthStore === "function") {
         clearAuthStore();
       }
-      window.location.href = "/login"; 
+
+      router.push("/login");
     } catch (error) {
       console.error("Lỗi quá trình đăng xuất:", error);
       window.location.href = "/login";
@@ -68,125 +98,336 @@ export default function Header() {
 
   const getDashboardPath = () => {
     if (!userRole) return "/dashboard";
-    
+
     if (userRole.includes("ADMIN")) return "/admin/dashboard";
     if (userRole.includes("EMPLOYER")) return "/employer/dashboard";
-    
-    // User thường
-    return "/dashboard"; 
+
+    return "/dashboard";
   };
 
-  const navLinks = [
-    { name: "Việc làm", path: "/jobs", icon: Briefcase },
-    { name: "Công ty", path: "/companies", icon: Building2 },
-  ];
+  const handleOpenEmployerRegister = () => {
+    if (!isLoggedIn) {
+      toast.error("Vui lòng đăng nhập trước khi đăng ký nhà tuyển dụng!");
+      router.push("/login");
+      return;
+    }
 
-  // HÀM CHẠY SAU KHI SUBMIT FORM THÀNH CÔNG
+    setIsMenuOpen(false);
+    setIsModalOpen(true);
+  };
+
   const handleRegisterSuccess = () => {
     setCompanyStatus("PENDING");
-    
-    // Lưu tạm status vào localStorage để F5 không bị mất
+
     try {
       const userObj = JSON.parse(localStorage.getItem("user") || "{}");
       userObj.companyStatus = "PENDING";
       localStorage.setItem("user", JSON.stringify(userObj));
-    } catch (e) {
-      console.error("Lỗi khi update localStorage:", e);
+    } catch (error) {
+      console.error("Lỗi khi update localStorage:", error);
     }
   };
 
+  const siteName = isSettingsLoading
+    ? "..."
+    : settings?.siteName || "JOBCONNECT";
+
+  const navLinks = [
+    {
+      name: "Trang chủ",
+      path: "/",
+      icon: Home,
+      exact: true,
+    },
+    {
+      name: "Việc làm",
+      path: "/jobs",
+      icon: Briefcase,
+    },
+    {
+      name: "Công ty",
+      path: "/companies",
+      icon: Building2,
+    },
+    {
+      name: "Tin tức",
+      path: "/news",
+      icon: Newspaper,
+    },
+    {
+      name: "Về Chúng Tôi",
+      path: "/about",
+      icon: Info,
+    },
+  ];
+
+  const isActiveLink = (link) => {
+    if (link.exact) return pathname === link.path;
+    return pathname === link.path || pathname?.startsWith(`${link.path}/`);
+  };
+
+  const shouldShowEmployerButton =
+    isLoggedIn &&
+    !userRole?.includes("EMPLOYER") &&
+    !userRole?.includes("ADMIN");
+
   return (
     <>
-      <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            
-            {/* Logo & Điều hướng bên trái */}
-            <div className="flex items-center gap-8">
-              <Link href="/" className="flex items-center gap-2">
-                <span className="text-2xl font-extrabold text-emerald-600 tracking-tight uppercase">
-                  {isSettingsLoading ? "..." : (settings?.siteName || "JOBCONNECT")}
+      <header className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-4">
+            {/* LEFT */}
+            <div className="flex min-w-0 items-center gap-6">
+              <Link href="/" className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-xl font-extrabold uppercase tracking-tight text-emerald-600 sm:text-2xl">
+                  {siteName}
                 </span>
               </Link>
-              <nav className="hidden md:flex gap-6">
-                {navLinks.map((link) => {
-                  const isActive = pathname.startsWith(link.path);
-                  return (
-                    <Link key={link.name} href={link.path} className={`flex items-center gap-2 font-medium transition-colors ${ isActive ? "text-emerald-600" : "text-gray-600 hover:text-emerald-600" }`}>
-                      <link.icon className="w-4 h-4" />
-                      {link.name}
-                    </Link>
-                  );
-                })}
+
+              <nav className="hidden items-center gap-5 md:flex">
+                {navLinks
+                  .filter((item) => item.path !== "/")
+                  .map((link) => {
+                    const Icon = link.icon;
+                    const active = isActiveLink(link);
+
+                    return (
+                      <Link
+                        key={link.name}
+                        href={link.path}
+                        className={`flex items-center gap-2 font-medium transition-colors ${active
+                            ? "text-emerald-600"
+                            : "text-gray-600 hover:text-emerald-600"
+                          }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {link.name}
+                      </Link>
+                    );
+                  })}
               </nav>
             </div>
 
-            {/* Hành động bên phải */}
-            <div className="hidden md:flex items-center gap-2">
+            {/* DESKTOP RIGHT */}
+            <div className="hidden items-center gap-2 md:flex">
               {isLoggedIn ? (
                 <div className="flex items-center gap-3">
-                  
-                  {/* LOGIC HIỂN THỊ NÚT NHÀ TUYỂN DỤNG */}
-                  {(!userRole?.includes("EMPLOYER") && !userRole?.includes("ADMIN")) && (
-                    companyStatus === "PENDING" ? (
-                      <button disabled className="flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 mr-2 opacity-80 cursor-wait">
-                        <Clock className="w-4 h-4 animate-pulse" />
+                  {shouldShowEmployerButton &&
+                    (companyStatus === "PENDING" ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="mr-1 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 opacity-80"
+                      >
+                        <Clock className="h-4 w-4 animate-pulse" />
                         Đang chờ duyệt
                       </button>
                     ) : (
-                      <button 
-                        onClick={() => setIsModalOpen(true)}
-                        className="flex items-center gap-1 text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors border border-emerald-200 mr-2"
+                      <button
+                        type="button"
+                        onClick={handleOpenEmployerRegister}
+                        className="mr-1 flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                       >
-                        <Rocket className="w-4 h-4" />
+                        <Rocket className="h-4 w-4" />
                         Trở thành NTD
                       </button>
-                    )
-                  )}
+                    ))}
 
                   <NotificationBell />
-                  <div className="h-6 w-[1px] bg-gray-200 mx-2"></div>
-                  
-                  {/* LOGIC ẨN/HIỆN NÚT DASHBOARD */}
+
+                  <div className="mx-1 h-6 w-px bg-gray-200" />
+
                   {pathname === getDashboardPath() ? (
-                    <Link href="/jobs" className="text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-emerald-50 transition-all border border-emerald-100">
-                      <Briefcase className="w-5 h-5" />
+                    <Link
+                      href="/jobs"
+                      className="flex items-center gap-2 rounded-lg border border-emerald-100 px-3 py-2 font-medium text-emerald-600 transition-all hover:bg-emerald-50 hover:text-emerald-700"
+                    >
+                      <Briefcase className="h-5 w-5" />
                       Tìm việc làm
                     </Link>
                   ) : (
-                    <Link href={getDashboardPath()} className="text-gray-600 hover:text-emerald-600 font-medium flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-50 transition-all">
-                      <UserCircle className="w-5 h-5 text-gray-400" />
+                    <Link
+                      href={getDashboardPath()}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 font-medium text-gray-600 transition-all hover:bg-gray-50 hover:text-emerald-600"
+                    >
+                      <UserCircle className="h-5 w-5 text-gray-400" />
                       Dashboard
                     </Link>
                   )}
-                  
-                  <button onClick={handleLogout} className="flex items-center gap-2 text-red-500 hover:text-red-700 font-medium bg-red-50 px-3 py-2 rounded-lg transition-colors">
-                    <LogOut className="w-4 h-4" />
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 font-medium text-red-500 transition-colors hover:text-red-700"
+                  >
+                    <LogOut className="h-4 w-4" />
                     Đăng xuất
                   </button>
                 </div>
               ) : (
-                /* CHƯA ĐĂNG NHẬP */
                 <div className="flex items-center gap-3">
-                  <Link href="/login" className="text-gray-600 font-semibold hover:text-emerald-600 transition-colors px-3 py-2">Đăng nhập</Link>
-                  <Link href="/register" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all active:scale-95">Đăng ký ngay</Link>
-                  <div className="border-l border-gray-200 pl-4 ml-2">
-                    <button onClick={() => alert("Vui lòng đăng nhập trước!")} className="text-sm font-semibold text-gray-800 bg-gray-100 hover:bg-gray-200 px-4 py-2.5 rounded-lg transition-colors">
+                  <Link
+                    href="/login"
+                    className="px-3 py-2 font-semibold text-gray-600 transition-colors hover:text-emerald-600"
+                  >
+                    Đăng nhập
+                  </Link>
+
+                  <Link
+                    href="/register"
+                    className="rounded-lg bg-emerald-600 px-5 py-2.5 font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
+                  >
+                    Đăng ký ngay
+                  </Link>
+
+                  <div className="ml-2 border-l border-gray-200 pl-4">
+                    <button
+                      type="button"
+                      onClick={handleOpenEmployerRegister}
+                      className="rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-200"
+                    >
                       Nhà tuyển dụng
                     </button>
                   </div>
                 </div>
               )}
             </div>
-            
+
+            {/* MOBILE RIGHT */}
+            <div className="flex items-center gap-2 md:hidden">
+              {isLoggedIn && (
+                <div className="scale-95">
+                  <NotificationBell />
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen((prev) => !prev)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50"
+                aria-label="Mở menu"
+              >
+                {isMenuOpen ? (
+                  <X className="h-5 w-5" />
+                ) : (
+                  <Menu className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* MOBILE MENU */}
+        {isMenuOpen && (
+          <div className="border-t border-gray-100 bg-white md:hidden">
+            <div className="mx-auto max-w-7xl px-4 py-4">
+              <nav className="space-y-2">
+                {navLinks.map((link) => {
+                  const Icon = link.icon;
+                  const active = isActiveLink(link);
+
+                  return (
+                    <Link
+                      key={link.name}
+                      href={link.path}
+                      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${active
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {link.name}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                {isLoggedIn ? (
+                  <div className="space-y-2">
+                    {shouldShowEmployerButton &&
+                      (companyStatus === "PENDING" ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700"
+                        >
+                          <Clock className="h-4 w-4 animate-pulse" />
+                          Đang chờ duyệt nhà tuyển dụng
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleOpenEmployerRegister}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700"
+                        >
+                          <Rocket className="h-4 w-4" />
+                          Trở thành nhà tuyển dụng
+                        </button>
+                      ))}
+
+                    <Link
+                      href={getDashboardPath()}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                    >
+                      <UserCircle className="h-5 w-5" />
+                      Vào Dashboard
+                    </Link>
+
+                    <Link
+                      href="/jobs"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <Briefcase className="h-5 w-5" />
+                      Tìm việc làm
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-100"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Link
+                      href="/login"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <LogIn className="h-5 w-5" />
+                      Đăng nhập
+                    </Link>
+
+                    <Link
+                      href="/register"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                    >
+                      <UserPlus className="h-5 w-5" />
+                      Đăng ký ngay
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenEmployerRegister}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold text-gray-800 transition hover:bg-gray-200"
+                    >
+                      <Building2 className="h-5 w-5" />
+                      Nhà tuyển dụng
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* MODAL */}
-      <EmployerRegisterModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <EmployerRegisterModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         onSuccess={handleRegisterSuccess}
       />
     </>

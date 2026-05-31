@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { register } from "@/services/authService";
+import api from "@/services/axios";
 import toast from "react-hot-toast";
 import {
-  Mail,
   Lock,
-  User,
+  Mail,
+  KeyRound,
   ShieldCheck,
-  CheckCircle,
-  AlertCircle,
   Loader2,
+  AlertCircle,
+  CheckCircle,
+  ArrowLeft,
   BriefcaseBusiness,
 } from "lucide-react";
 
@@ -75,28 +76,34 @@ const passwordRules = [
   },
 ];
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const emailFromQuery = searchParams.get("email") || "";
 
   const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    password: "",
+    email: emailFromQuery,
+    otp: "",
+    newPassword: "",
     confirmPassword: "",
   });
 
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const passwordError = validateStrongPassword(form.password);
-  const isPasswordStrong = form.password.length > 0 && !passwordError;
+  const passwordError = useMemo(
+    () => validateStrongPassword(form.newPassword),
+    [form.newPassword]
+  );
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const isPasswordStrong = form.newPassword.length > 0 && !passwordError;
 
+  const updateField = (field, value) => {
     setForm((prev) => ({
       ...prev,
-      [name]: value,
+      [field]: value,
     }));
 
     if (errorMessage) {
@@ -109,29 +116,65 @@ export default function RegisterPage() {
     toast.error(message);
   };
 
+  const handleResendOtp = async () => {
+    const cleanEmail = form.email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      showError("Vui lòng nhập email trước khi gửi lại OTP!");
+      return;
+    }
+
+    try {
+      setResending(true);
+      setErrorMessage("");
+
+      await api.post("/users/forgot-password", {
+        email: cleanEmail,
+      });
+
+      toast.success("Mã OTP mới đã được gửi đến email của bạn!");
+    } catch (err) {
+      console.error("Resend reset OTP error:", err);
+
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Không thể gửi lại OTP. Vui lòng thử lại!";
+
+      showError(msg);
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const cleanFullName = form.fullName.trim();
     const cleanEmail = form.email.trim().toLowerCase();
-
-    if (!cleanFullName) {
-      showError("Vui lòng nhập họ và tên!");
-      return;
-    }
+    const cleanOtp = form.otp.trim();
 
     if (!cleanEmail) {
       showError("Vui lòng nhập email!");
       return;
     }
 
-    const strongPasswordError = validateStrongPassword(form.password);
+    if (!cleanOtp) {
+      showError("Vui lòng nhập mã OTP!");
+      return;
+    }
+
+    if (cleanOtp.length !== 6) {
+      showError("Mã OTP phải gồm 6 số!");
+      return;
+    }
+
+    const strongPasswordError = validateStrongPassword(form.newPassword);
     if (strongPasswordError) {
       showError(strongPasswordError);
       return;
     }
 
-    if (form.password !== form.confirmPassword) {
+    if (form.newPassword !== form.confirmPassword) {
       showError("Mật khẩu xác nhận không khớp!");
       return;
     }
@@ -140,35 +183,25 @@ export default function RegisterPage() {
       setLoading(true);
       setErrorMessage("");
 
-      const data = await register({
-        fullName: cleanFullName,
+      await api.post("/users/reset-password", {
         email: cleanEmail,
-        password: form.password,
+        otp: cleanOtp,
+        newPassword: form.newPassword,
         confirmPassword: form.confirmPassword,
       });
 
-      if (data?.token) {
-        localStorage.setItem("token", data.token);
-      }
+      toast.success("Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.");
 
-      if (data?.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken);
-      }
-
-      if (data?.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
-
-      toast.success("Đăng ký thành công! Vui lòng xác thực OTP.");
-
-      router.push(`/verify-otp?email=${encodeURIComponent(cleanEmail)}`);
+      router.push("/login");
     } catch (err) {
-      console.error("CHI TIẾT LỖI:", err?.response?.data || err);
+      console.error("Reset password error:", err);
 
-      const errorMsg =
-        err.response?.data?.message || err.message || "Đăng ký thất bại";
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Đặt lại mật khẩu thất bại. Vui lòng thử lại!";
 
-      showError(errorMsg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -187,39 +220,33 @@ export default function RegisterPage() {
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            Cơ hội nghề nghiệp mới đang chờ bạn
+            Tạo mật khẩu mới cho tài khoản của bạn
           </p>
         </div>
 
         <div className="rounded-2xl sm:rounded-3xl border border-gray-100 bg-white p-5 sm:p-8 shadow-xl">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {errorMessage && (
-              <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                <span className="leading-6">{errorMessage}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
-                Họ và tên
-              </label>
-
-              <div className="relative">
-                <User className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-
-                <input
-                  type="text"
-                  name="fullName"
-                  required
-                  value={form.fullName}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Nguyễn Văn A"
-                />
-              </div>
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+              <KeyRound className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
 
+            <h2 className="text-xl sm:text-2xl font-extrabold text-gray-800">
+              Đặt lại mật khẩu
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Nhập mã OTP đã gửi về email và tạo mật khẩu mới an toàn hơn.
+            </p>
+          </div>
+
+          {errorMessage && (
+            <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+              <span className="leading-6">{errorMessage}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
                 Email
@@ -230,10 +257,9 @@ export default function RegisterPage() {
 
                 <input
                   type="email"
-                  name="email"
                   required
                   value={form.email}
-                  onChange={handleChange}
+                  onChange={(e) => updateField("email", e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
                   placeholder="email@example.com"
                 />
@@ -242,7 +268,39 @@ export default function RegisterPage() {
 
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
-                Mật khẩu
+                Mã OTP
+              </label>
+
+              <div className="relative">
+                <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  maxLength={6}
+                  value={form.otp}
+                  onChange={(e) =>
+                    updateField("otp", e.target.value.replace(/\D/g, ""))
+                  }
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Nhập mã OTP 6 số"
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={resending || loading}
+                onClick={handleResendOtp}
+                className="mt-2 inline-flex text-xs font-semibold text-emerald-600 hover:underline disabled:text-gray-400"
+              >
+                {resending ? "Đang gửi lại OTP..." : "Gửi lại mã OTP"}
+              </button>
+            </div>
+
+            <div>
+              <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
+                Mật khẩu mới
               </label>
 
               <div className="relative">
@@ -250,12 +308,11 @@ export default function RegisterPage() {
 
                 <input
                   type="password"
-                  name="password"
                   required
-                  value={form.password}
-                  onChange={handleChange}
+                  value={form.newPassword}
+                  onChange={(e) => updateField("newPassword", e.target.value)}
                   className={`w-full rounded-xl border bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:bg-white focus:ring-2 ${
-                    form.password.length > 0 && !isPasswordStrong
+                    form.newPassword.length > 0 && !isPasswordStrong
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                       : "border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
                   }`}
@@ -263,7 +320,7 @@ export default function RegisterPage() {
                 />
               </div>
 
-              {form.password.length > 0 && (
+              {form.newPassword.length > 0 && (
                 <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
                   <p className="text-xs font-semibold text-gray-600">
                     Mật khẩu cần đáp ứng:
@@ -271,7 +328,7 @@ export default function RegisterPage() {
 
                   <div className="mt-2 grid grid-cols-1 gap-1.5">
                     {passwordRules.map((rule) => {
-                      const passed = rule.test(form.password);
+                      const passed = rule.test(form.newPassword);
 
                       return (
                         <div
@@ -280,12 +337,7 @@ export default function RegisterPage() {
                             passed ? "text-emerald-600" : "text-gray-400"
                           }`}
                         >
-                          {passed ? (
-                            <CheckCircle className="h-3.5 w-3.5" />
-                          ) : (
-                            <AlertCircle className="h-3.5 w-3.5" />
-                          )}
-
+                          <CheckCircle className="h-3.5 w-3.5" />
                           <span>{rule.label}</span>
                         </div>
                       );
@@ -297,30 +349,31 @@ export default function RegisterPage() {
 
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
-                Xác nhận mật khẩu
+                Xác nhận mật khẩu mới
               </label>
 
               <div className="relative">
-                <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
 
                 <input
                   type="password"
-                  name="confirmPassword"
                   required
                   value={form.confirmPassword}
-                  onChange={handleChange}
+                  onChange={(e) =>
+                    updateField("confirmPassword", e.target.value)
+                  }
                   className={`w-full rounded-xl border bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:bg-white focus:ring-2 ${
                     form.confirmPassword &&
-                    form.password !== form.confirmPassword
+                    form.newPassword !== form.confirmPassword
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                       : "border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
                   }`}
-                  placeholder="Nhập lại mật khẩu"
+                  placeholder="Nhập lại mật khẩu mới"
                 />
               </div>
 
               {form.confirmPassword &&
-                form.password !== form.confirmPassword && (
+                form.newPassword !== form.confirmPassword && (
                   <p className="mt-1 text-xs font-medium text-red-500">
                     Mật khẩu xác nhận không khớp.
                   </p>
@@ -329,9 +382,9 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || resending}
               className={`mt-2 flex w-full items-center justify-center rounded-xl py-3 font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
-                loading
+                loading || resending
                   ? "cursor-not-allowed bg-emerald-400"
                   : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700"
               }`}
@@ -339,21 +392,39 @@ export default function RegisterPage() {
               {loading ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Đang tạo tài khoản...
+                  Đang đặt lại mật khẩu...
                 </span>
               ) : (
-                "Đăng ký ngay"
+                "Đặt lại mật khẩu"
               )}
             </button>
           </form>
 
-          <div className="mt-8 border-t border-gray-100 pt-6 text-center text-sm text-gray-600">
-            Đã có tài khoản?{" "}
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs font-medium uppercase text-gray-400">
+              Hoặc
+            </span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <div className="text-center text-sm text-gray-600">
+            Nhớ mật khẩu rồi?{" "}
             <Link
               href="/login"
-              className="font-bold text-emerald-600 transition-all hover:underline"
+              className="font-bold text-emerald-600 hover:underline"
             >
-              Đăng nhập
+              Đăng nhập ngay
+            </Link>
+          </div>
+
+          <div className="mt-5 text-center">
+            <Link
+              href="/forgot-password"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500 transition-colors hover:text-emerald-600"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Quay lại nhập email
             </Link>
           </div>
         </div>

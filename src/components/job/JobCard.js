@@ -1,7 +1,14 @@
-'use client';
+"use client";
 
 import Link from "next/link";
-import { MapPin, Briefcase, Clock, CircleDollarSign } from "lucide-react";
+import {
+  MapPin,
+  Briefcase,
+  Clock,
+  CircleDollarSign,
+  Building2,
+  ArrowRight,
+} from "lucide-react";
 
 const timeAgo = (dateString) => {
   if (!dateString) return "Mới cập nhật";
@@ -29,18 +36,35 @@ const timeAgo = (dateString) => {
   return date.toLocaleDateString("vi-VN");
 };
 
-const formatSalary = (salary) => {
-  if (salary === null || salary === undefined || salary === "") {
-    return "Thỏa thuận";
+const formatMoney = (value) => {
+  const numberValue = Number(value);
+
+  if (Number.isNaN(numberValue)) return null;
+
+  return `${numberValue.toLocaleString("vi-VN")} VNĐ`;
+};
+
+const formatSalary = (job) => {
+  if (!job) return "Thỏa thuận";
+
+  if (job.salary !== null && job.salary !== undefined && job.salary !== "") {
+    return formatMoney(job.salary) || "Thỏa thuận";
   }
 
-  const numberSalary = Number(salary);
+  if (job.minSalary && job.maxSalary) {
+    const min = formatMoney(job.minSalary);
+    const max = formatMoney(job.maxSalary);
 
-  if (Number.isNaN(numberSalary)) {
-    return "Thỏa thuận";
+    if (min && max) return `${min} - ${max}`;
   }
 
-  return `${numberSalary.toLocaleString("vi-VN")} VNĐ`;
+  if (job.minSalary) {
+    const min = formatMoney(job.minSalary);
+
+    if (min) return `Từ ${min}`;
+  }
+
+  return "Thỏa thuận";
 };
 
 export default function JobCard({ job }) {
@@ -48,58 +72,75 @@ export default function JobCard({ job }) {
 
   const companyName = job.company?.name || "Tên công ty chưa cập nhật";
   const firstLetter = companyName?.trim()?.charAt(0) || "J";
+  const jobHref = job.id ? `/jobs/${job.id}` : "/jobs";
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
-      <div className="flex items-start justify-between">
-        <div className="flex gap-4 min-w-0">
-          <div className="w-14 h-14 shrink-0 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 font-bold text-xl border border-emerald-100 uppercase">
-            {firstLetter}
-          </div>
+    <article className="group flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-emerald-100 hover:shadow-md sm:p-5">
+      {/* HEADER */}
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-100 bg-emerald-50 text-lg font-bold uppercase text-emerald-600 sm:h-14 sm:w-14 sm:text-xl">
+          {job.company?.logo ? (
+            <img
+              src={job.company.logo}
+              alt={companyName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            firstLetter
+          )}
+        </div>
 
-          <div className="min-w-0">
-            <h3 className="font-bold text-gray-900 group-hover:text-emerald-600 transition-colors line-clamp-1">
-              {job.title || "Chưa cập nhật tiêu đề"}
-            </h3>
-            <p className="text-sm text-gray-500 font-medium line-clamp-1">
-              {companyName}
-            </p>
-          </div>
+        <div className="min-w-0 flex-1">
+          <Link
+            href={jobHref}
+            className="line-clamp-2 text-base font-bold leading-6 text-gray-900 transition-colors group-hover:text-emerald-600"
+          >
+            {job.title || "Chưa cập nhật tiêu đề"}
+          </Link>
+
+          <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-gray-500">
+            <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
+            <span className="truncate">{companyName}</span>
+          </p>
         </div>
       </div>
 
-      <div className="mt-4 space-y-2">
-        <div className="flex items-center text-gray-500 text-sm gap-2">
-          <MapPin size={16} className="text-gray-400 shrink-0" />
+      {/* INFO */}
+      <div className="mt-4 flex-1 space-y-2.5">
+        <div className="flex items-start gap-2 text-sm text-gray-500">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
           <span className="line-clamp-1">{job.location || "Toàn quốc"}</span>
         </div>
 
-        <div className="flex items-center text-gray-500 text-sm gap-2">
-          <Briefcase size={16} className="text-gray-400 shrink-0" />
-          <span className="line-clamp-1">{job.category || "Toàn thời gian"}</span>
+        <div className="flex items-start gap-2 text-sm text-gray-500">
+          <Briefcase className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+          <span className="line-clamp-1">
+            {job.category || job.jobType || "Toàn thời gian"}
+          </span>
         </div>
 
-        <div className="flex items-center text-gray-500 text-sm gap-2">
-          <CircleDollarSign size={16} className="text-emerald-500 shrink-0" />
-          <span className="text-emerald-600 font-medium">
-            {formatSalary(job.salary)}
+        <div className="flex items-start gap-2 text-sm">
+          <CircleDollarSign className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+          <span className="line-clamp-2 font-bold text-emerald-600">
+            {formatSalary(job)}
           </span>
         </div>
       </div>
 
-      <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Clock size={14} />
+      {/* FOOTER */}
+      <div className="mt-5 border-t border-gray-50 pt-4">
+        <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
+          <Clock size={14} className="shrink-0" />
           <span>{timeAgo(job.createdAt)}</span>
         </div>
 
         <Link
-          href={`/jobs/${job.id}`}
-          className="text-sm font-bold text-emerald-600 hover:text-emerald-700 underline-offset-4 hover:underline"
+          href={jobHref}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-700 transition-all hover:bg-emerald-600 hover:text-white"
         >
-          Chi tiết
+          Xem chi tiết
         </Link>
       </div>
-    </div>
+    </article>
   );
 }

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -12,6 +12,11 @@ import {
   MapPin,
   RefreshCcw,
   AlertCircle,
+  Wallet,
+  Tag,
+  BadgeCheck,
+  Clock3,
+  Ban,
 } from "lucide-react";
 
 import api from "@/services/axios";
@@ -23,7 +28,6 @@ export default function EmployerJobsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // ================= FETCH JOBS =================
   const fetchJobs = useCallback(async (silent = false) => {
     try {
       if (silent) {
@@ -36,7 +40,6 @@ export default function EmployerJobsPage() {
 
       const data = await api.get("/jobs/my-jobs");
 
-      // Axios interceptor đã unwrap rồi
       const jobsData = Array.isArray(data)
         ? data
         : Array.isArray(data?.content)
@@ -64,7 +67,6 @@ export default function EmployerJobsPage() {
     fetchJobs();
   }, [fetchJobs]);
 
-  // ================= DELETE JOB =================
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm(
       "Bạn có chắc chắn muốn xóa tin tuyển dụng này không?"
@@ -90,101 +92,145 @@ export default function EmployerJobsPage() {
     }
   };
 
-  // ================= STATUS UI =================
   const getStatusBadge = (status) => {
     switch (status) {
       case "APPROVED":
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 whitespace-nowrap">
+            <BadgeCheck className="w-3.5 h-3.5" />
             Đang hiển thị
           </span>
         );
 
       case "PENDING":
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 whitespace-nowrap">
+            <Clock3 className="w-3.5 h-3.5" />
             Chờ duyệt
           </span>
         );
 
       case "REJECTED":
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">
+            <Ban className="w-3.5 h-3.5" />
             Bị từ chối
           </span>
         );
 
       default:
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 whitespace-nowrap">
             Không xác định
           </span>
         );
     }
   };
 
+  const formatSalary = (salary) => {
+    if (!salary) return "Thoả thuận";
+    return `${Number(salary).toLocaleString("vi-VN")} VNĐ`;
+  };
+
+  const renderActions = (job) => {
+    return (
+      <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
+        <Link
+          href={`/employer/applications/${job.id}`}
+          title="Xem CV ứng tuyển"
+          className="inline-flex items-center justify-center gap-1 px-3 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-sm font-semibold"
+        >
+          <FileText className="w-4 h-4" />
+          <span className="hidden sm:inline">CV</span>
+        </Link>
+
+        <Link
+          href={`/employer/jobs/edit/${job.id}`}
+          title="Chỉnh sửa"
+          className="inline-flex items-center justify-center gap-1 px-3 py-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors text-sm font-semibold"
+        >
+          <Edit className="w-4 h-4" />
+          <span className="hidden sm:inline">Sửa</span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => handleDelete(job.id)}
+          title="Xóa tin tuyển dụng"
+          className="inline-flex items-center justify-center gap-1 px-3 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-sm font-semibold"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span className="hidden sm:inline">Xóa</span>
+        </button>
+      </div>
+    );
+  };
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
-      {/* ================= HEADER ================= */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Quản lý tin tuyển dụng
-          </h1>
+    <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6 pb-8 sm:pb-10">
+      {/* HEADER */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Briefcase className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 shrink-0" />
+              Quản lý tin tuyển dụng
+            </h1>
 
-          <p className="text-sm text-gray-500 mt-1">
-            Theo dõi và quản lý các chiến dịch tuyển dụng của doanh nghiệp.
-          </p>
-        </div>
+            <p className="text-sm text-gray-500 mt-1 leading-6">
+              Theo dõi và quản lý các chiến dịch tuyển dụng của doanh nghiệp.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => fetchJobs(true)}
-            disabled={refreshing}
-            title="Làm mới dữ liệu"
-            className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCcw
-              className={`w-5 h-5 text-gray-500 ${
-                refreshing ? "animate-spin" : ""
-              }`}
-            />
-          </button>
+          <div className="grid grid-cols-[48px_1fr] sm:flex sm:items-center gap-3 w-full lg:w-auto">
+            <button
+              type="button"
+              onClick={() => fetchJobs(true)}
+              disabled={refreshing}
+              title="Làm mới dữ liệu"
+              className="h-12 w-12 inline-flex items-center justify-center bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60"
+            >
+              <RefreshCcw
+                className={`w-5 h-5 text-gray-500 ${
+                  refreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
 
-          <Link
-            href="/employer/jobs/create"
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#00b14f] text-white font-bold rounded-lg shadow-md hover:bg-[#009643] transition-all active:scale-95"
-          >
-            <Plus className="w-5 h-5" />
-            Đăng tin mới
-          </Link>
+            <Link
+              href="/employer/jobs/create"
+              className="h-12 flex items-center justify-center gap-2 px-5 bg-[#00b14f] text-white font-bold rounded-xl shadow-md hover:bg-[#009643] transition-all active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              Đăng tin mới
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* ================= ERROR ================= */}
+      {/* ERROR */}
       {error && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 shadow-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-
-          <p className="text-sm font-medium">{error}</p>
+        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 shadow-sm">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <p className="text-sm font-medium leading-6">{error}</p>
         </div>
       )}
 
-      {/* ================= TABLE ================= */}
+      {/* CONTENT */}
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-        {/* Table Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-5 border-b border-gray-50">
           <div>
-            <h2 className="text-lg font-bold text-gray-800">
+            <h2 className="text-base sm:text-lg font-bold text-gray-800">
               Danh sách tin tuyển dụng
             </h2>
-
+            <p className="text-sm text-gray-400 mt-1">
+              Tổng cộng {jobs.length} tin tuyển dụng
+            </p>
           </div>
         </div>
 
-        {/* Loading */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24">
+          <div className="flex flex-col items-center justify-center py-16 sm:py-24 px-4 text-center">
             <Loader2 className="w-10 h-10 text-[#00b14f] animate-spin mb-4" />
 
             <p className="text-gray-500 font-medium">
@@ -192,13 +238,12 @@ export default function EmployerJobsPage() {
             </p>
           </div>
         ) : jobs.length === 0 ? (
-          // Empty State
-          <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
-            <div className="w-24 h-24 rounded-full bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center mb-5">
-              <Briefcase className="w-12 h-12 text-gray-300" />
+          <div className="flex flex-col items-center justify-center py-16 sm:py-24 px-6 text-center">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center mb-5">
+              <Briefcase className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300" />
             </div>
 
-            <h3 className="text-xl font-bold text-gray-800">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800">
               Chưa có tin tuyển dụng nào
             </h3>
 
@@ -216,91 +261,112 @@ export default function EmployerJobsPage() {
             </Link>
           </div>
         ) : (
-          // Table Data
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px]">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr className="text-left text-sm text-gray-500">
-                  <th className="px-6 py-4 font-semibold">Công việc</th>
-                  <th className="px-6 py-4 font-semibold">Ngành nghề</th>
-                  <th className="px-6 py-4 font-semibold">Mức lương</th>
-                  <th className="px-6 py-4 font-semibold">Trạng thái</th>
-                  <th className="px-6 py-4 font-semibold text-center">Thao tác</th>
-                </tr>
-              </thead>
+          <>
+            {/* MOBILE CARD */}
+            <div className="block lg:hidden divide-y divide-gray-100">
+              {jobs.map((job) => (
+                <div key={job.id} className="p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-gray-800 text-base leading-6 break-words">
+                        {job.title || "Tin tuyển dụng chưa có tiêu đề"}
+                      </h3>
 
-              <tbody className="divide-y divide-gray-100">
-                {jobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    className="hover:bg-gray-50/70 transition-colors"
-                  >
-                    {/* JOB INFO */}
-                    <td className="px-6 py-5">
-                      <div>
-                        <h3 className="font-bold text-gray-800">
-                          {job.title}
-                        </h3>
-
-                        <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
-                          <MapPin className="w-4 h-4" />
+                      <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
+                        <MapPin className="w-4 h-4 shrink-0" />
+                        <span className="truncate">
                           {job.location || "Chưa cập nhật"}
-                        </div>
+                        </span>
                       </div>
-                    </td>
+                    </div>
 
-                    {/* CATEGORY */}
-                    <td className="px-6 py-5">
-                      <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
+                    <div className="shrink-0">{getStatusBadge(job.status)}</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                        <Tag className="w-4 h-4" />
+                        Ngành nghề
+                      </div>
+                      <p className="font-semibold text-gray-700">
                         {job.category || "Chưa phân loại"}
-                      </span>
-                    </td>
+                      </p>
+                    </div>
 
-                    {/* SALARY */}
-                    <td className="px-6 py-5 font-semibold text-gray-700">
-                      {job.salary
-                        ? `${Number(job.salary).toLocaleString()} VNĐ`
-                        : "Thoả thuận"}
-                    </td>
-
-                    {/* STATUS */}
-                    <td className="px-6 py-5">
-                      {getStatusBadge(job.status)}
-                    </td>
-
-                    {/* ACTIONS */}
-                    <td className="px-6 py-5">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/employer/applications/${job.id}`}
-                          title="Xem CV ứng tuyển"
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <FileText className="w-5 h-5" />
-                        </Link>
-
-                        <Link
-                          href={`/employer/jobs/edit/${job.id}`}
-                          title="Chỉnh sửa"
-                          className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </Link>
-
-                        <button
-                          onClick={() => handleDelete(job.id)}
-                          title="Xóa tin tuyển dụng"
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                        <Wallet className="w-4 h-4" />
+                        Mức lương
                       </div>
-                    </td>
+                      <p className="font-semibold text-emerald-600">
+                        {formatSalary(job.salary)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {renderActions(job)}
+                </div>
+              ))}
+            </div>
+
+            {/* DESKTOP TABLE */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full min-w-[900px]">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr className="text-left text-sm text-gray-500">
+                    <th className="px-6 py-4 font-semibold">Công việc</th>
+                    <th className="px-6 py-4 font-semibold">Ngành nghề</th>
+                    <th className="px-6 py-4 font-semibold">Mức lương</th>
+                    <th className="px-6 py-4 font-semibold">Trạng thái</th>
+                    <th className="px-6 py-4 font-semibold text-center">
+                      Thao tác
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+
+                <tbody className="divide-y divide-gray-100">
+                  {jobs.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="hover:bg-gray-50/70 transition-colors"
+                    >
+                      <td className="px-6 py-5">
+                        <div>
+                          <h3 className="font-bold text-gray-800">
+                            {job.title}
+                          </h3>
+
+                          <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
+                            <MapPin className="w-4 h-4" />
+                            {job.location || "Chưa cập nhật"}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
+                          {job.category || "Chưa phân loại"}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-5 font-semibold text-gray-700">
+                        {formatSalary(job.salary)}
+                      </td>
+
+                      <td className="px-6 py-5">{getStatusBadge(job.status)}</td>
+
+                      <td className="px-6 py-5">
+                        <div className="flex items-center justify-end gap-2">
+                          {renderActions(job)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   Lock,
   AlertCircle,
   BriefcaseBusiness,
+  Loader2,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -18,30 +19,45 @@ export default function LoginPage() {
   const { handleLogin } = useAuth();
 
   const googleButtonRef = useRef(null);
+  const googleInitializedRef = useRef(false);
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [googleConfigMissing, setGoogleConfigMissing] = useState(false);
 
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
 
-  // =========================
-  // GOOGLE LOGIN INIT
-  // =========================
   useEffect(() => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
     if (!clientId) {
-      console.warn("Thiếu NEXT_PUBLIC_GOOGLE_CLIENT_ID trong .env.local");
+      console.warn(
+        "Thiếu NEXT_PUBLIC_GOOGLE_CLIENT_ID trong Vercel hoặc .env.local"
+      );
+      setGoogleConfigMissing(true);
       return;
     }
+
+    setGoogleConfigMissing(false);
 
     const loadGoogleScript = () => {
       if (window.google) {
         initializeGoogleLogin(clientId);
+        return;
+      }
+
+      const existingScript = document.querySelector(
+        'script[src="https://accounts.google.com/gsi/client"]'
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", () =>
+          initializeGoogleLogin(clientId)
+        );
         return;
       }
 
@@ -50,6 +66,10 @@ export default function LoginPage() {
       script.async = true;
       script.defer = true;
       script.onload = () => initializeGoogleLogin(clientId);
+      script.onerror = () => {
+        setGoogleConfigMissing(true);
+        setErrorMessage("Không thể tải Google Login. Vui lòng thử lại sau.");
+      };
 
       document.body.appendChild(script);
     };
@@ -59,6 +79,9 @@ export default function LoginPage() {
 
   const initializeGoogleLogin = (clientId) => {
     if (!window.google || !googleButtonRef.current) return;
+    if (googleInitializedRef.current) return;
+
+    googleInitializedRef.current = true;
 
     window.google.accounts.id.initialize({
       client_id: clientId,
@@ -68,23 +91,33 @@ export default function LoginPage() {
     window.google.accounts.id.renderButton(googleButtonRef.current, {
       theme: "outline",
       size: "large",
-      width: 360,
+      width: "100%",
       text: "continue_with",
       shape: "pill",
     });
   };
 
-  // =========================
-  // LOGIN THƯỜNG
-  // =========================
   const onSubmit = async (e) => {
     e.preventDefault();
+
+    if (!form.email.trim()) {
+      setErrorMessage("Vui lòng nhập email!");
+      return;
+    }
+
+    if (!form.password) {
+      setErrorMessage("Vui lòng nhập mật khẩu!");
+      return;
+    }
 
     setLoading(true);
     setErrorMessage("");
 
     try {
-      await handleLogin(form);
+      await handleLogin({
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      });
     } catch (err) {
       console.error("Đăng nhập lỗi ở UI:", err);
 
@@ -99,9 +132,6 @@ export default function LoginPage() {
     }
   };
 
-  // =========================
-  // LOGIN GOOGLE
-  // =========================
   const handleGoogleCredential = async (response) => {
     if (!response?.credential) {
       setErrorMessage("Không lấy được thông tin đăng nhập Google!");
@@ -115,18 +145,6 @@ export default function LoginPage() {
       const res = await api.post("/users/google-login", {
         credential: response.credential,
       });
-
-      /**
-       * BE trả JwtResponse dạng:
-       * {
-       *   token,
-       *   refreshToken,
-       *   id,
-       *   email,
-       *   fullName,
-       *   role
-       * }
-       */
 
       if (!res?.token) {
         throw new Error("Không nhận được token từ server!");
@@ -166,12 +184,14 @@ export default function LoginPage() {
   };
 
   const redirectByRole = (role) => {
-    if (role === "ADMIN") {
+    const safeRole = String(role || "").toUpperCase();
+
+    if (safeRole.includes("ADMIN")) {
       router.push("/admin/dashboard");
       return;
     }
 
-    if (role === "EMPLOYER") {
+    if (safeRole.includes("EMPLOYER")) {
       router.push("/employer/dashboard");
       return;
     }
@@ -179,36 +199,43 @@ export default function LoginPage() {
     router.push("/dashboard");
   };
 
+  const updateField = (field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    if (errorMessage) {
+      setErrorMessage("");
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-green-50 px-4 py-10">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-green-50 px-4 py-6 sm:py-10">
       <div className="w-full max-w-md">
-        {/* Logo / Brand */}
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200">
-            <BriefcaseBusiness className="h-8 w-8" />
+        <div className="mb-5 sm:mb-6 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200">
+            <BriefcaseBusiness className="h-7 w-7 sm:h-8 sm:w-8" />
           </div>
 
-          <h1 className="text-3xl font-extrabold tracking-tight text-emerald-600">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600">
             JOBCONNECT
           </h1>
 
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm leading-6 text-gray-500">
             Đăng nhập để tiếp tục hành trình sự nghiệp
           </p>
         </div>
 
-        {/* Card */}
-        <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-xl">
+        <div className="rounded-2xl sm:rounded-3xl border border-gray-100 bg-white p-5 sm:p-8 shadow-xl">
           <form onSubmit={onSubmit} className="space-y-5">
-            {/* Error */}
             {errorMessage && (
               <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                <AlertCircle className="h-5 w-5 shrink-0" />
-                <span>{errorMessage}</span>
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <span className="leading-6">{errorMessage}</span>
               </div>
             )}
 
-            {/* Email */}
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
                 Email
@@ -220,27 +247,23 @@ export default function LoginPage() {
                 <input
                   type="email"
                   required
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
                   placeholder="email@example.com"
                   value={form.email}
-                  onChange={(e) => {
-                    setForm({ ...form, email: e.target.value });
-                    if (errorMessage) setErrorMessage("");
-                  }}
+                  onChange={(e) => updateField("email", e.target.value)}
                 />
               </div>
             </div>
 
-            {/* Password */}
             <div>
-              <div className="mb-1 ml-1 flex items-center justify-between">
+              <div className="mb-1 ml-1 flex items-center justify-between gap-3">
                 <label className="text-sm font-semibold text-gray-700">
                   Mật khẩu
                 </label>
 
                 <Link
                   href="/forgot-password"
-                  className="text-xs font-medium text-emerald-600 hover:underline"
+                  className="shrink-0 text-xs font-semibold text-emerald-600 hover:underline"
                 >
                   Quên mật khẩu?
                 </Link>
@@ -252,18 +275,14 @@ export default function LoginPage() {
                 <input
                   type="password"
                   required
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
                   placeholder="••••••••"
                   value={form.password}
-                  onChange={(e) => {
-                    setForm({ ...form, password: e.target.value });
-                    if (errorMessage) setErrorMessage("");
-                  }}
+                  onChange={(e) => updateField("password", e.target.value)}
                 />
               </div>
             </div>
 
-            {/* Login Button */}
             <button
               type="submit"
               disabled={loading || googleLoading}
@@ -275,7 +294,7 @@ export default function LoginPage() {
             >
               {loading ? (
                 <span className="flex items-center gap-2">
-                  <LoaderIcon />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                   Đang xử lý...
                 </span>
               ) : (
@@ -284,7 +303,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-gray-200" />
             <span className="text-xs font-medium uppercase text-gray-400">
@@ -293,7 +311,6 @@ export default function LoginPage() {
             <div className="h-px flex-1 bg-gray-200" />
           </div>
 
-          {/* Google Button */}
           <div className="flex justify-center">
             {googleLoading ? (
               <button
@@ -301,15 +318,21 @@ export default function LoginPage() {
                 disabled
                 className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-500"
               >
-                <LoaderDarkIcon />
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Đang đăng nhập Google...
               </button>
+            ) : googleConfigMissing ? (
+              <div className="w-full rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-center text-sm leading-6 text-yellow-700">
+                Chưa cấu hình Google Login. Vui lòng kiểm tra biến{" "}
+                <b>NEXT_PUBLIC_GOOGLE_CLIENT_ID</b>.
+              </div>
             ) : (
-              <div ref={googleButtonRef} />
+              <div className="w-full flex justify-center overflow-hidden">
+                <div ref={googleButtonRef} className="w-full max-w-[360px]" />
+              </div>
             )}
           </div>
 
-          {/* Register */}
           <div className="mt-8 border-t border-gray-100 pt-6 text-center text-sm text-gray-600">
             Chưa có tài khoản?{" "}
             <Link
@@ -322,57 +345,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-function LoaderIcon() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-white"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  );
-}
-
-function LoaderDarkIcon() {
-  return (
-    <svg
-      className="h-5 w-5 animate-spin text-gray-500"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
   );
 }

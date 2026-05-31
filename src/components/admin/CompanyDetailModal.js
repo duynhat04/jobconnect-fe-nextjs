@@ -1,115 +1,271 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import api from '@/services/axios';
+import { useState, useEffect } from "react";
+import api from "@/services/axios";
+import {
+  X,
+  Loader2,
+  Building2,
+  MapPin,
+  Mail,
+  Phone,
+  Globe,
+  Users,
+  FileText,
+  BadgeCheck,
+  Clock3,
+  AlertCircle,
+  ExternalLink,
+} from "lucide-react";
 
 export default function CompanyDetailModal({ companyId, onClose }) {
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const fetchDetail = async () => {
+      if (!companyId) return;
+
       try {
+        setLoading(true);
+        setErrorMessage("");
+
         const response = await api.get(`/admin/companies/${companyId}`);
-        setCompany(response.data);
+
+        const data = response?.data || response || null;
+
+        setCompany(data);
       } catch (error) {
         console.error("Lỗi khi tải chi tiết công ty:", error);
-        alert("Không tìm thấy dữ liệu công ty!");
-        onClose();
+
+        setErrorMessage(
+          error?.response?.data?.message ||
+            error?.message ||
+            "Không tìm thấy dữ liệu công ty!"
+        );
       } finally {
         setLoading(false);
       }
     };
-    if (companyId) fetchDetail();
-  }, [companyId, onClose]);
+
+    fetchDetail();
+  }, [companyId]);
+
+  const getStatusBadge = (status) => {
+    const currentStatus = String(status || "").toUpperCase();
+
+    if (currentStatus === "APPROVED") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">
+          <BadgeCheck className="h-3.5 w-3.5" />
+          Đã duyệt
+        </span>
+      );
+    }
+
+    if (currentStatus === "REJECTED") {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700">
+          <AlertCircle className="h-3.5 w-3.5" />
+          Bị từ chối
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-3 py-1.5 text-xs font-bold text-yellow-700">
+        <Clock3 className="h-3.5 w-3.5" />
+        Chờ duyệt
+      </span>
+    );
+  };
+
+  const InfoItem = ({ icon: Icon, label, value, isLink = false }) => (
+    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+      <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+        <Icon className="h-4 w-4 text-emerald-600" />
+        {label}
+      </div>
+
+      {isLink && value ? (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex max-w-full items-center gap-1 break-all text-sm font-semibold text-blue-600 hover:underline"
+        >
+          {value}
+          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+        </a>
+      ) : (
+        <p className="break-words text-sm font-medium leading-6 text-gray-700">
+          {value || "Chưa cập nhật"}
+        </p>
+      )}
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col relative animate-fade-in-up">
-        
-        {/* Nút đóng */}
-        <button 
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 py-4 backdrop-blur-sm sm:p-4">
+      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl">
+        {/* CLOSE */}
+        <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-2xl font-bold transition z-10"
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-xl bg-white/90 text-gray-500 shadow-sm transition hover:bg-red-50 hover:text-red-500 sm:right-4 sm:top-4"
+          aria-label="Đóng modal"
         >
-          &times;
+          <X className="h-5 w-5" />
         </button>
 
+        {/* LOADING */}
         {loading ? (
-          <div className="p-10 text-center text-gray-600 font-medium">Đang tải hồ sơ doanh nghiệp...</div>
-        ) : !company ? (
-          <div className="p-10 text-center text-red-500">Không có dữ liệu!</div>
-        ) : (
-          <div className="overflow-y-auto p-8 custom-scrollbar">
-            {/* Header: Logo + Tên */}
-            <div className="flex items-start gap-6 border-b pb-6 mb-6">
-              <div className="w-24 h-24 bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center border">
-                {company.logo ? (
-                  <img src={company.logo} alt="logo" className="w-full h-full object-contain p-2" />
-                ) : (
-                  <span className="text-gray-400 text-xs text-center">No Logo</span>
-                )}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800 mb-1">{company.name}</h1>
-                <p className="text-emerald-600 font-medium italic">MST: {company.taxCode || "Chưa cập nhật"}</p>
-                <div className="mt-2">
-                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                     company.status === 'APPROVED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                   }`}>
-                     {company.status}
-                   </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Body: Thông tin chi tiết */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-gray-500 font-semibold uppercase">📍 Địa chỉ trụ sở</label>
-                  <p className="text-gray-700 mt-1">{company.address || "Đang cập nhật"}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500 font-semibold uppercase">📧 Email liên hệ</label>
-                  <p className="text-gray-700 mt-1">{company.email || "Chưa có email"}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500 font-semibold uppercase">📞 Số điện thoại</label>
-                  <p className="text-gray-700 mt-1">{company.phone || "Chưa có SĐT"}</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-gray-500 font-semibold uppercase">🌐 Website</label>
-                  <p className="text-blue-600 mt-1 underline">
-                    {company.website ? <a href={company.website} target="_blank">{company.website}</a> : "Không có"}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500 font-semibold uppercase">👥 Quy mô công ty</label>
-                  <p className="text-gray-700 mt-1">{company.size || "Chưa rõ"}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Giới thiệu công ty */}
-            <div className="mt-8">
-              <h3 className="text-lg font-bold text-gray-800 border-l-4 border-emerald-500 pl-3 mb-3">Giới thiệu công ty</h3>
-              <div className="bg-gray-50 p-4 rounded-lg text-gray-600 leading-relaxed whitespace-pre-wrap italic">
-                {company.description || "Công ty chưa cập nhật phần giới thiệu."}
-              </div>
-            </div>
-
-            {/* Nếu sếp có lưu ảnh Giấy phép kinh doanh thì show ở đây */}
-            {company.businessLicense && (
-               <div className="mt-8">
-                 <h3 className="text-lg font-bold text-gray-800 mb-3">Giấy phép kinh doanh</h3>
-                 <img src={company.businessLicense} alt="GPKD" className="w-full rounded-lg border shadow-sm" />
-               </div>
-            )}
+          <div className="flex min-h-[320px] flex-col items-center justify-center px-5 py-16 text-center">
+            <Loader2 className="mb-4 h-10 w-10 animate-spin text-emerald-600" />
+            <p className="font-semibold text-gray-600">
+              Đang tải hồ sơ doanh nghiệp...
+            </p>
           </div>
+        ) : errorMessage ? (
+          <div className="flex min-h-[320px] flex-col items-center justify-center px-5 py-16 text-center">
+            <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
+            <p className="font-semibold leading-6 text-red-600">
+              {errorMessage}
+            </p>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-5 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+            >
+              Đóng
+            </button>
+          </div>
+        ) : !company ? (
+          <div className="flex min-h-[320px] flex-col items-center justify-center px-5 py-16 text-center">
+            <AlertCircle className="mb-4 h-12 w-12 text-gray-300" />
+            <p className="font-semibold text-gray-500">Không có dữ liệu!</p>
+          </div>
+        ) : (
+          <>
+            {/* HEADER */}
+            <div className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-green-50 p-4 pr-14 sm:p-6 sm:pr-16">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm sm:h-24 sm:w-24">
+                  {company.logo ? (
+                    <img
+                      src={company.logo}
+                      alt={company.name || "Company logo"}
+                      className="h-full w-full object-contain p-2"
+                    />
+                  ) : (
+                    <Building2 className="h-9 w-9 text-gray-300" />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h1 className="break-words text-xl font-bold leading-tight text-gray-800 sm:text-2xl">
+                    {company.name || "Công ty chưa cập nhật tên"}
+                  </h1>
+
+                  <p className="mt-2 text-sm font-semibold text-emerald-600">
+                    MST: {company.taxCode || "Chưa cập nhật"}
+                  </p>
+
+                  <div className="mt-3">{getStatusBadge(company.status)}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* BODY */}
+            <div className="overflow-y-auto p-4 sm:p-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <InfoItem
+                  icon={MapPin}
+                  label="Địa chỉ trụ sở"
+                  value={company.address}
+                />
+
+                <InfoItem
+                  icon={Mail}
+                  label="Email liên hệ"
+                  value={company.email}
+                />
+
+                <InfoItem
+                  icon={Phone}
+                  label="Số điện thoại"
+                  value={company.phone}
+                />
+
+                <InfoItem
+                  icon={Globe}
+                  label="Website"
+                  value={company.website}
+                  isLink
+                />
+
+                <InfoItem
+                  icon={Users}
+                  label="Quy mô công ty"
+                  value={company.size}
+                />
+              </div>
+
+              {/* DESCRIPTION */}
+              <div className="mt-6">
+                <h3 className="mb-3 flex items-center gap-2 border-l-4 border-emerald-500 pl-3 text-lg font-bold text-gray-800">
+                  <Building2 className="h-5 w-5 text-emerald-600" />
+                  Giới thiệu công ty
+                </h3>
+
+                <div className="whitespace-pre-wrap rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm leading-7 text-gray-700">
+                  {company.description ||
+                    "Công ty chưa cập nhật phần giới thiệu."}
+                </div>
+              </div>
+
+              {/* BUSINESS LICENSE */}
+              {company.businessLicense && (
+                <div className="mt-6">
+                  <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-800">
+                    <FileText className="h-5 w-5 text-emerald-600" />
+                    Giấy phép kinh doanh
+                  </h3>
+
+                  <a
+                    href={company.businessLicense}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-3 inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-600 hover:bg-emerald-100"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Mở giấy phép
+                  </a>
+
+                  <div className="overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
+                    <img
+                      src={company.businessLicense}
+                      alt="Giấy phép kinh doanh"
+                      className="max-h-[520px] w-full object-contain"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* FOOTER */}
+            <div className="border-t border-gray-100 bg-gray-50 p-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex w-full items-center justify-center rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800 sm:ml-auto sm:w-auto"
+              >
+                Đóng
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

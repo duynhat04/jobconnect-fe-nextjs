@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   X,
   Building2,
@@ -8,69 +8,107 @@ import {
   MapPin,
   Phone,
   Globe,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/services/axios";
+
+const initialFormData = {
+  name: "",
+  taxCode: "",
+  address: "",
+  phone: "",
+  website: "",
+};
 
 export default function EmployerRegisterModal({
   isOpen,
   onClose,
   onSuccess,
 }) {
-  const [formData, setFormData] = useState({
-    name: "",
-    taxCode: "",
-    address: "",
-    phone: "",
-    website: "",
-  });
-
+  const [formData, setFormData] = useState(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    if (errorMessage) {
+      setErrorMessage("");
+    }
+  };
+
+  const showError = (message) => {
+    setErrorMessage(message);
+    toast.error(message);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate MST
-    if (formData.taxCode.length < 10) {
-      toast.error("Mã số thuế phải có ít nhất 10 ký tự!");
+    const payload = {
+      name: formData.name.trim(),
+      taxCode: formData.taxCode.trim(),
+      address: formData.address.trim(),
+      phone: formData.phone.trim(),
+      website: formData.website.trim(),
+    };
+
+    if (!payload.name) {
+      showError("Vui lòng nhập tên công ty!");
       return;
     }
 
-    setIsSubmitting(true);
+    if (payload.taxCode.length < 10) {
+      showError("Mã số thuế phải có ít nhất 10 ký tự!");
+      return;
+    }
+
+    if (!payload.phone) {
+      showError("Vui lòng nhập số điện thoại công ty!");
+      return;
+    }
+
+    if (!payload.address) {
+      showError("Vui lòng nhập địa chỉ trụ sở!");
+      return;
+    }
 
     try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+
       const userString = localStorage.getItem("user");
       const user = userString ? JSON.parse(userString) : null;
 
       if (!user || !user.id) {
-        toast.error(
-          "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại!"
-        );
+        showError("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại!");
         return;
       }
 
-      const userId = user.id;
+      const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
 
-      // FIX QUAN TRỌNG:
-      // dùng axios gốc thay vì api để tránh interceptor skip /register
-      await api.post(`/companies/register/${userId}`, formData, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+      await api.post(`/companies/register/${user.id}`, payload, {
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined,
       });
 
       toast.success(
         "Gửi yêu cầu thành công! Admin sẽ duyệt hồ sơ của bạn sớm."
       );
+
+      setFormData(initialFormData);
 
       if (onSuccess) {
         onSuccess();
@@ -83,9 +121,10 @@ export default function EmployerRegisterModal({
       const msg =
         error?.response?.data?.message ||
         error?.response?.data ||
+        error?.message ||
         "Có lỗi xảy ra khi gửi yêu cầu!";
 
-      toast.error(
+      showError(
         typeof msg === "string"
           ? msg
           : "Mã số thuế đã tồn tại hoặc dữ liệu không hợp lệ!"
@@ -95,90 +134,107 @@ export default function EmployerRegisterModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-emerald-50/30">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <Building2 className="w-6 h-6 text-emerald-600" />
-              Đăng ký Nhà tuyển dụng
-            </h2>
+  const inputClass =
+    "w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm text-gray-800 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20";
 
-            <p className="text-xs text-gray-500 mt-1">
-              Vui lòng cung cấp thông tin pháp lý của công ty
-            </p>
+  const labelClass = "mb-1.5 block text-sm font-semibold text-gray-700";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-3 py-4 backdrop-blur-sm sm:p-4">
+      <div className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:rounded-3xl">
+        {/* HEADER */}
+        <div className="relative border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-green-50 p-4 pr-14 sm:p-5 sm:pr-16">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-sm">
+              <Building2 className="h-6 w-6" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="break-words text-xl font-bold text-gray-800">
+                Đăng ký Nhà tuyển dụng
+              </h2>
+
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                Vui lòng cung cấp thông tin pháp lý của công ty.
+              </p>
+            </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+            disabled={isSubmitting}
+            className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/90 text-gray-500 shadow-sm transition hover:bg-red-50 hover:text-red-500 disabled:opacity-60 sm:right-4 sm:top-4"
+            aria-label="Đóng modal"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Form */}
+        {/* FORM */}
         <form
           onSubmit={handleSubmit}
-          className="p-5 space-y-4 max-h-[80vh] overflow-y-auto"
+          className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5"
         >
+          {errorMessage && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span className="leading-6">{errorMessage}</span>
+            </div>
+          )}
+
           {/* Tên công ty */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Tên công ty *
-            </label>
+            <label className={labelClass}>Tên công ty *</label>
 
             <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Building2 className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
 
               <input
                 type="text"
                 name="name"
                 required
+                value={formData.name}
                 placeholder="VD: Công ty TNHH JobConnect"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                className={inputClass}
                 onChange={handleChange}
               />
             </div>
           </div>
 
           {/* MST + Phone */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Mã số thuế *
-              </label>
+              <label className={labelClass}>Mã số thuế *</label>
 
               <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <FileText className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
 
                 <input
                   type="text"
                   name="taxCode"
                   required
+                  value={formData.taxCode}
                   placeholder="0101234567"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className={inputClass}
                   onChange={handleChange}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Số điện thoại *
-              </label>
+              <label className={labelClass}>Số điện thoại *</label>
 
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Phone className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
 
                 <input
                   type="tel"
                   name="phone"
                   required
+                  value={formData.phone}
                   placeholder="098..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className={inputClass}
                   onChange={handleChange}
                 />
               </div>
@@ -187,19 +243,18 @@ export default function EmployerRegisterModal({
 
           {/* Address */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Địa chỉ trụ sở *
-            </label>
+            <label className={labelClass}>Địa chỉ trụ sở *</label>
 
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
 
               <input
                 type="text"
                 name="address"
                 required
+                value={formData.address}
                 placeholder="Số 1, đường ABC, Quận X, TP. Y"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
                 onChange={handleChange}
               />
             </div>
@@ -207,38 +262,40 @@ export default function EmployerRegisterModal({
 
           {/* Website */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Website công ty
-            </label>
+            <label className={labelClass}>Website công ty</label>
 
             <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Globe className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
 
               <input
                 type="url"
                 name="website"
+                value={formData.website}
                 placeholder="https://company.com"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
                 onChange={handleChange}
               />
             </div>
           </div>
 
-          {/* Submit */}
-          <div className="pt-4 border-t border-gray-50">
+          {/* SUBMIT */}
+          <div className="border-t border-gray-100 pt-4">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-200 transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 font-bold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? (
-                <div className="w-5 h-5 border-[3px] border-white border-t-transparent rounded-full animate-spin"></div>
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Đang gửi hồ sơ...
+                </>
               ) : (
                 "Gửi hồ sơ xét duyệt"
               )}
             </button>
 
-            <p className="text-[10px] text-center text-gray-400 mt-3 uppercase tracking-wider font-medium">
+            <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-wider text-gray-400">
               JobConnect Employer Verification System
             </p>
           </div>

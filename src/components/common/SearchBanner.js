@@ -1,107 +1,139 @@
 "use client";
 
-import { Search, MapPin, List } from "lucide-react";
+import { Search, MapPin, List, Briefcase } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation"; // IMPORT THÊM ROUTER
+import { useRouter } from "next/navigation";
+
+const JOB_CATEGORIES = [
+  "IT - Phần mềm",
+  "Marketing / Truyền thông",
+  "Kinh doanh / Bán hàng",
+  "Kế toán / Kiểm toán",
+  "Nhân sự",
+  "Thiết kế",
+  "Chăm sóc khách hàng",
+  "Giáo dục / Đào tạo",
+  "Tài chính / Ngân hàng",
+  "Khác",
+];
 
 export default function SearchBanner() {
-  const router = useRouter(); // KHỞI TẠO ROUTER
+  const router = useRouter();
+
   const [keyword, setKeyword] = useState("");
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
 
   const handleSearch = (e) => {
     e.preventDefault();
-    
-    // Gom các giá trị người dùng nhập vào URL parameters
-    const params = new URLSearchParams();
-    if (keyword.trim()) params.append('keyword', keyword.trim());
-    if (location) params.append('location', location);
-    if (category) params.append('category', category);
 
-    // Chuyển hướng sang trang /jobs kèm theo bộ lọc
-    router.push(`/jobs?${params.toString()}`);
+    const params = new URLSearchParams();
+
+    if (keyword.trim()) {
+      params.append("keyword", keyword.trim());
+    }
+
+    if (location) {
+      params.append("location", location);
+    }
+
+    if (category) {
+      params.append("category", category);
+    }
+
+    const queryString = params.toString();
+
+    router.push(queryString ? `/jobs?${queryString}` : "/jobs");
   };
 
+  const inputWrapperClass =
+    "flex w-full items-center rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition-colors focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20 md:border-0 md:bg-transparent md:px-4 md:py-2 md:focus-within:ring-0";
+
+  const inputClass =
+    "w-full bg-transparent text-sm font-medium text-gray-700 outline-none placeholder:text-gray-400 sm:text-base";
+
   return (
-    <div className="bg-[#003b2b] py-16 px-4 sm:px-6 lg:px-8 flex flex-col items-center">
-      {/* Màu nền xanh lá đậm giống hệt hình */}
-      
-      {/* Khối Tiêu đề */}
-      <div className="text-center mb-8 space-y-3">
-        <h1 className="text-2xl md:text-4xl font-bold text-[#00b14f]">
-          Tìm việc làm nhanh 24h, việc làm mới nhất trên toàn quốc
-        </h1>
-        <p className="text-white text-sm md:text-base font-medium">
-          Tiếp cận 60.000+ tin tuyển dụng việc làm mỗi ngày từ hàng nghìn doanh nghiệp uy tín tại Việt Nam
-        </p>
-      </div>
+    <section className="bg-[#003b2b] px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
+      <div className="mx-auto flex max-w-7xl flex-col items-center">
+        <div className="mb-6 max-w-4xl space-y-3 text-center sm:mb-8">
+          <div className="mx-auto mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-300 backdrop-blur">
+            <Briefcase className="h-4 w-4" />
+            JobConnect
+          </div>
 
-      {/* Khối Form Tìm kiếm */}
-      <form 
-        onSubmit={handleSearch}
-        className="w-full max-w-5xl bg-white rounded-full p-2 flex flex-col md:flex-row items-center gap-2 shadow-lg"
-      >
-        
-        {/* Dropdown Danh mục Nghề */}
-        <div className="flex items-center w-full md:w-1/4 px-4 py-2 hover:bg-gray-50 rounded-full cursor-pointer transition-colors">
-          <List className="w-5 h-5 text-gray-500 flex-shrink-0 mr-3" />
-          <select 
-            className="w-full bg-transparent outline-none text-gray-700 cursor-pointer appearance-none truncate font-medium"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">Danh mục Nghề</option>
-            <option value="it">IT - Phần mềm</option>
-            <option value="marketing">Marketing / Truyền thông</option>
-            <option value="sales">Kinh doanh / Bán hàng</option>
-            <option value="ketoan">Kế toán / Kiểm toán</option>
-          </select>
+          <h1 className="text-2xl font-extrabold leading-tight text-[#00b14f] sm:text-3xl md:text-4xl">
+            Tìm việc làm nhanh 24h, việc làm mới nhất trên toàn quốc
+          </h1>
+
+          <p className="mx-auto max-w-3xl text-sm font-medium leading-6 text-white/90 sm:text-base">
+            Tiếp cận 60.000+ tin tuyển dụng mỗi ngày từ hàng nghìn doanh nghiệp
+            uy tín tại Việt Nam.
+          </p>
         </div>
 
-        {/* Vạch kẻ dọc (chỉ hiện trên Desktop) */}
-        <div className="hidden md:block w-px h-8 bg-gray-200"></div>
-
-        {/* Input Vị trí tuyển dụng */}
-        <div className="flex items-center w-full md:flex-1 px-4 py-2">
-          <input
-            type="text"
-            placeholder="Vị trí tuyển dụng, tên công ty"
-            className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-400 font-medium"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-        </div>
-
-        {/* Vạch kẻ dọc (chỉ hiện trên Desktop) */}
-        <div className="hidden md:block w-px h-8 bg-gray-200"></div>
-
-        {/* Dropdown Địa điểm - ĐÃ ĐỒNG BỘ VALUE VỚI TRANG DANH SÁCH */}
-        <div className="flex items-center w-full md:w-[22%] px-4 py-2 hover:bg-gray-50 rounded-full cursor-pointer transition-colors">
-          <MapPin className="w-5 h-5 text-gray-500 flex-shrink-0 mr-3" />
-          <select 
-            className="w-full bg-transparent outline-none text-gray-700 cursor-pointer appearance-none font-medium"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          >
-            <option value="">Địa điểm</option>
-            <option value="Hà Nội">Hà Nội</option>
-            <option value="Hồ Chí Minh">TP. Hồ Chí Minh</option>
-            <option value="Đà Nẵng">Đà Nẵng</option>
-            <option value="Remote">Làm việc từ xa (Remote)</option>
-          </select>
-        </div>
-
-        {/* Nút Tìm kiếm */}
-        <button 
-          type="submit"
-          className="w-full md:w-auto bg-[#00b14f] hover:bg-[#009643] text-white font-bold px-8 py-3.5 rounded-full flex items-center justify-center gap-2 transition-colors mt-2 md:mt-0"
+        <form
+          onSubmit={handleSearch}
+          className="w-full max-w-5xl rounded-2xl bg-white p-3 shadow-xl sm:p-4 md:flex md:items-center md:gap-2 md:rounded-full md:p-2"
         >
-          <Search className="w-5 h-5" />
-          Tìm kiếm
-        </button>
+          <div className={inputWrapperClass + " md:w-[28%]"}>
+            <List className="mr-3 h-5 w-5 shrink-0 text-gray-500" />
 
-      </form>
-    </div>
+            <select
+              className={`${inputClass} cursor-pointer appearance-none`}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="">Tất cả ngành nghề</option>
+
+              {JOB_CATEGORIES.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="my-3 h-px w-full bg-gray-100 md:my-0 md:h-8 md:w-px md:bg-gray-200" />
+
+          <div className={inputWrapperClass + " md:flex-1"}>
+            <Search className="mr-3 h-5 w-5 shrink-0 text-gray-500 md:hidden" />
+
+            <input
+              type="text"
+              placeholder="Vị trí tuyển dụng, tên công ty..."
+              className={inputClass}
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+          </div>
+
+          <div className="my-3 h-px w-full bg-gray-100 md:my-0 md:h-8 md:w-px md:bg-gray-200" />
+
+          <div className={inputWrapperClass + " md:w-[23%]"}>
+            <MapPin className="mr-3 h-5 w-5 shrink-0 text-gray-500" />
+
+            <select
+              className={`${inputClass} cursor-pointer appearance-none`}
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            >
+              <option value="">Địa điểm</option>
+              <option value="Hà Nội">Hà Nội</option>
+              <option value="Hồ Chí Minh">TP. Hồ Chí Minh</option>
+              <option value="Đà Nẵng">Đà Nẵng</option>
+              <option value="Remote">Làm việc từ xa</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00b14f] px-6 py-3.5 font-bold text-white transition-colors hover:bg-[#009643] active:scale-[0.98] md:mt-0 md:w-auto md:rounded-full md:px-8"
+          >
+            <Search className="h-5 w-5" />
+            Tìm kiếm
+          </button>
+        </form>
+      </div>
+    </section>
   );
 }

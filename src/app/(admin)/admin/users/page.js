@@ -12,10 +12,12 @@ import {
   ShieldX,
   Mail,
   UserRound,
+  Loader2,
+  BadgeCheck,
+  Ban,
 } from "lucide-react";
 
 export default function ManageUsersPage() {
-  // ================= STATE =================
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -28,7 +30,6 @@ export default function ManageUsersPage() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // ================= DEBOUNCE SEARCH =================
   useEffect(() => {
     const timeout = setTimeout(() => {
       setDebouncedSearch(search);
@@ -38,7 +39,6 @@ export default function ManageUsersPage() {
     return () => clearTimeout(timeout);
   }, [search]);
 
-  // ================= FETCH USERS =================
   const fetchUsers = async () => {
     setLoading(true);
 
@@ -64,21 +64,14 @@ export default function ManageUsersPage() {
     fetchUsers();
   }, [page, debouncedSearch]);
 
-  // ================= TOGGLE STATUS =================
   const handleToggleStatus = async (id, currentStatus) => {
     const isActive = currentStatus !== "ACTIVE";
 
-    const actionName =
-      currentStatus === "ACTIVE"
-        ? "khóa"
-        : "mở khóa";
+    const actionName = currentStatus === "ACTIVE" ? "khóa" : "mở khóa";
 
-    if (
-      !confirm(
-        `Bạn có chắc muốn ${actionName} tài khoản này?`
-      )
-    )
+    if (!confirm(`Bạn có chắc muốn ${actionName} tài khoản này?`)) {
       return;
+    }
 
     setIsUpdating(true);
 
@@ -89,159 +82,147 @@ export default function ManageUsersPage() {
         },
       });
 
-      toast.success(
-        `Đã ${actionName} tài khoản thành công!`
-      );
+      toast.success(`Đã ${actionName} tài khoản thành công!`);
 
       fetchUsers();
     } catch (error) {
       toast.error(
-        error?.response?.data?.message ||
-          `Lỗi khi ${actionName} tài khoản!`
+        error?.response?.data?.message || `Lỗi khi ${actionName} tài khoản!`
       );
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // ================= STATUS BADGE =================
   const renderStatusBadge = (status) => {
     switch (status) {
       case "ACTIVE":
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 whitespace-nowrap">
+          <span className="inline-flex items-center justify-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 whitespace-nowrap">
+            <BadgeCheck className="w-3.5 h-3.5" />
             Hoạt động
           </span>
         );
 
       case "BANNED":
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 whitespace-nowrap">
+          <span className="inline-flex items-center justify-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 whitespace-nowrap">
+            <Ban className="w-3.5 h-3.5" />
             Bị khóa
           </span>
         );
 
       default:
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 whitespace-nowrap">
-            {status}
+          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 whitespace-nowrap">
+            {status || "Không rõ"}
           </span>
         );
     }
   };
 
-  // ================= UI =================
+  const renderActionButtons = (user) => {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSelectedUserId(user.id)}
+          className="inline-flex items-center justify-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition-all"
+        >
+          <Eye className="w-4 h-4" />
+          Chi tiết
+        </button>
+
+        {user.status === "ACTIVE" ? (
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() => handleToggleStatus(user.id, user.status)}
+            className="inline-flex items-center justify-center gap-1 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+          >
+            <ShieldX className="w-4 h-4" />
+            Khóa
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() => handleToggleStatus(user.id, user.status)}
+            className="inline-flex items-center justify-center gap-1 px-3 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Mở khóa
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* HEADER */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <Users className="w-7 h-7 text-emerald-600" />
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <Users className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 shrink-0" />
               Quản lý Ứng viên
             </h1>
 
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1 leading-6">
               Quản lý tài khoản người tìm việc trên hệ thống
             </p>
           </div>
 
-          {/* SEARCH */}
-          <div className="relative">
+          <div className="relative w-full lg:w-96">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm kiếm theo email hoặc họ tên..."
-              className="pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl w-full sm:w-80 focus:ring-2 focus:ring-emerald-500 outline-none"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
             />
           </div>
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* CONTENT */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left table-fixed">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 text-sm">
-                <th className="px-6 py-4 font-semibold w-[10%]">
-                  ID
-                </th>
-
-                <th className="px-4 py-3 font-semibold w-[30%]">
-                  Thông tin tài khoản
-                </th>
-
-                <th className="px-6 py-4 font-semibold w-[20%]">
-                  Email
-                </th>
-
-                <th className="px-6 py-4 font-semibold w-[15%] whitespace-nowrap">
-                  Trạng thái
-                </th>
-
-                <th className="px-6 py-4 font-semibold text-center w-[25%] whitespace-nowrap">
-                  Hành động
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="text-center py-14 text-gray-500"
-                  >
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-
-                      <span className="animate-pulse">
-                        Đang tải danh sách ứng viên...
-                      </span>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-500">
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+            <span>Đang tải danh sách ứng viên...</span>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="text-center py-16 px-4 text-gray-500">
+            Không tìm thấy ứng viên nào phù hợp.
+          </div>
+        ) : (
+          <>
+            {/* MOBILE CARD */}
+            <div className="block lg:hidden divide-y divide-gray-100">
+              {users.map((u) => (
+                <div key={u.id} className="p-4 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-14 h-14 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 overflow-hidden">
+                      {u.avatarUrl ? (
+                        <img
+                          src={u.avatarUrl}
+                          alt={u.fullName || "Ứng viên"}
+                          className="w-full h-full object-cover rounded-xl"
+                        />
+                      ) : (
+                        <UserRound className="w-7 h-7 text-emerald-600" />
+                      )}
                     </div>
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="text-center py-14 text-gray-500"
-                  >
-                    Không tìm thấy ứng viên nào phù hợp.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="border-b border-gray-100 hover:bg-gray-50/70 transition-colors"
-                  >
-                    {/* ID */}
-                    <td className="px-6 py-5 text-sm text-gray-500 font-medium">
-                      #{u.id}
-                    </td>
 
-                    {/* USER INFO */}
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                          {u.avatarUrl ? (
-                            <img
-                              src={u.avatarUrl}
-                              alt={u.fullName}
-                              className="w-full h-full object-cover rounded-xl"
-                            />
-                          ) : (
-                            <UserRound className="w-6 h-6 text-emerald-600" />
-                          )}
-                        </div>
-
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h3 className="font-semibold text-gray-800 truncate">
+                          <p className="text-xs text-gray-400 mb-1">#{u.id}</p>
+
+                          <h3 className="font-bold text-gray-800 text-base leading-6 truncate">
                             {u.fullName || "Chưa cập nhật"}
                           </h3>
 
@@ -249,99 +230,131 @@ export default function ManageUsersPage() {
                             Vai trò: {u.role || "CANDIDATE"}
                           </p>
                         </div>
+
+                        <div className="shrink-0">
+                          {renderStatusBadge(u.status)}
+                        </div>
                       </div>
-                    </td>
+                    </div>
+                  </div>
 
-                    {/* EMAIL */}
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
-                        <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
+                      <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span className="truncate">{u.email || "Không có email"}</span>
+                    </div>
+                  </div>
 
-                        <span className="truncate block">
-                          {u.email}
-                        </span>
-                      </div>
-                    </td>
+                  <div className="pt-1">{renderActionButtons(u)}</div>
+                </div>
+              ))}
+            </div>
 
-                    {/* STATUS */}
-                    <td className="px-6 py-5">
-                      {renderStatusBadge(u.status)}
-                    </td>
+            {/* DESKTOP TABLE */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full min-w-[1000px] text-left table-fixed">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 text-sm">
+                    <th className="px-6 py-4 font-semibold w-[10%]">ID</th>
 
-                    {/* ACTION */}
-                    <td className="px-6 py-5">
-                      <div className="flex items-center justify-center gap-2 whitespace-nowrap">
-                        <button
-                          onClick={() =>
-                            setSelectedUserId(u.id)
-                          }
-                          className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition-all"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Chi tiết
-                        </button>
+                    <th className="px-4 py-3 font-semibold w-[30%]">
+                      Thông tin tài khoản
+                    </th>
 
-                        {u.status === "ACTIVE" ? (
-                          <button
-                            disabled={isUpdating}
-                            onClick={() =>
-                              handleToggleStatus(
-                                u.id,
-                                u.status
-                              )
-                            }
-                            className="flex items-center gap-1 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-                          >
-                            <ShieldX className="w-4 h-4" />
-                            Khóa
-                          </button>
-                        ) : (
-                          <button
-                            disabled={isUpdating}
-                            onClick={() =>
-                              handleToggleStatus(
-                                u.id,
-                                u.status
-                              )
-                            }
-                            className="flex items-center gap-1 px-3 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-                          >
-                            <ShieldCheck className="w-4 h-4" />
-                            Mở khóa
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                    <th className="px-6 py-4 font-semibold w-[25%]">Email</th>
+
+                    <th className="px-6 py-4 font-semibold w-[15%] whitespace-nowrap">
+                      Trạng thái
+                    </th>
+
+                    <th className="px-6 py-4 font-semibold text-center w-[20%] whitespace-nowrap">
+                      Hành động
+                    </th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+
+                <tbody>
+                  {users.map((u) => (
+                    <tr
+                      key={u.id}
+                      className="border-b border-gray-100 hover:bg-gray-50/70 transition-colors"
+                    >
+                      <td className="px-6 py-5 text-sm text-gray-500 font-medium">
+                        #{u.id}
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 overflow-hidden">
+                            {u.avatarUrl ? (
+                              <img
+                                src={u.avatarUrl}
+                                alt={u.fullName || "Ứng viên"}
+                                className="w-full h-full object-cover rounded-xl"
+                              />
+                            ) : (
+                              <UserRound className="w-6 h-6 text-emerald-600" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-gray-800 truncate">
+                              {u.fullName || "Chưa cập nhật"}
+                            </h3>
+
+                            <p className="text-xs text-gray-500 mt-1">
+                              Vai trò: {u.role || "CANDIDATE"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
+                          <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+
+                          <span className="truncate block">{u.email}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-5">
+                        {renderStatusBadge(u.status)}
+                      </td>
+
+                      <td className="px-6 py-5">
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                          {renderActionButtons(u)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
         {/* PAGINATION */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-5 border-t border-gray-100 bg-gray-50/40">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4 sm:px-6 py-5 border-t border-gray-100 bg-gray-50/40">
           <div className="text-sm text-gray-600">
             Trang{" "}
-            <span className="font-semibold text-gray-900">
-              {page + 1}
-            </span>{" "}
-            / {totalPages}
+            <span className="font-semibold text-gray-900">{page + 1}</span> /{" "}
+            {totalPages}
           </div>
 
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
             <button
+              type="button"
               disabled={page === 0 || loading}
-              onClick={() => setPage((p) => p - 1)}
-              className="px-4 py-2 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="px-4 py-2 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all bg-white"
             >
               Trước
             </button>
 
             <button
-              disabled={
-                page >= totalPages - 1 || loading
-              }
+              type="button"
+              disabled={page >= totalPages - 1 || loading}
               onClick={() => setPage((p) => p + 1)}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
@@ -351,7 +364,6 @@ export default function ManageUsersPage() {
         </div>
       </div>
 
-      {/* MODAL */}
       {selectedUserId && (
         <UserDetailModal
           userId={selectedUserId}
