@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -21,6 +21,13 @@ import {
   Loader2,
   RefreshCcw,
   Search,
+  AlertCircle,
+  Clock4,
+  Wrench,
+  MessageSquareText,
+  FolderGit2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import api from "@/services/axios";
 import toast from "react-hot-toast";
@@ -34,9 +41,11 @@ export default function JobApplicationsPage() {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [pageSize, setPageSize] = useState(10);
+  const [expandedIds, setExpandedIds] = useState({});
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
   const [error, setError] = useState(null);
 
   const fetchApplications = useCallback(
@@ -90,16 +99,171 @@ export default function JobApplicationsPage() {
     fetchApplications();
   }, [fetchApplications]);
 
-  const handleUpdateStatus = async (appId, newStatus) => {
-    const action = newStatus === "ACCEPTED" ? "duyệt" : "từ chối";
+  const getApplicationId = (app) => app?.applicationId || app?.id;
 
-    if (!window.confirm(`Bạn có chắc chắn muốn ${action} ứng viên này?`)) {
+  const getCandidateName = (app) =>
+    app?.fullName || app?.candidateName || "Ứng viên ẩn danh";
+
+  const getCandidateEmail = (app) =>
+    app?.email || app?.candidateEmail || "Không có email";
+
+  const getCandidatePhone = (app) =>
+    app?.phone || app?.candidatePhone || "Chưa cập nhật SĐT";
+
+  const getCandidateAddress = (app) =>
+    app?.address || app?.candidateAddress || "";
+
+  const getCandidateSkills = (app) =>
+    app?.skills || app?.candidateSkills || "";
+
+  const getDesiredPosition = (app) =>
+    app?.desiredPosition ||
+    app?.candidateDesiredPosition ||
+    app?.jobTitle ||
+    "Chưa cập nhật vị trí";
+
+  const getExperienceYears = (app) =>
+    app?.experienceYears ?? app?.candidateExperienceYears ?? null;
+
+  const getExpectedSalary = (app) =>
+    app?.expectedSalary ?? app?.candidateExpectedSalary ?? null;
+
+  const getEducationLevel = (app) =>
+    app?.educationLevel || app?.candidateEducationLevel || "";
+
+  const getEnglishLevel = (app) =>
+    app?.englishLevel || app?.candidateEnglishLevel || "";
+
+  const getProjects = (app) => app?.projects || app?.candidateProjects || "";
+
+  const getCertificates = (app) =>
+    app?.certificates || app?.candidateCertificates || "";
+
+  const getCoverLetter = (app) => app?.coverLetter || "";
+
+  const getCvUrl = (app) => app?.cvUrl || "";
+
+  const getStatusValue = (value) => String(value || "PENDING").toUpperCase();
+
+  const formatSalary = (salary) => {
+    if (!salary) return "Không công khai";
+
+    const numberValue = Number(salary);
+
+    if (Number.isNaN(numberValue)) return "Không công khai";
+
+    return `${numberValue.toLocaleString("vi-VN")} VNĐ`;
+  };
+
+  const formatExperience = (value) => {
+    if (value === null || value === undefined || value === "") {
+      return "";
+    }
+
+    return `${value} năm kinh nghiệm`;
+  };
+
+  const formatDate = (date) => {
+    if (!date) return "Mới nộp";
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "Mới nộp";
+    }
+
+    return parsedDate.toLocaleDateString("vi-VN");
+  };
+
+  const getStatusDisplay = (statusValue) => {
+    const currentStatus = getStatusValue(statusValue);
+
+    switch (currentStatus) {
+      case "ACCEPTED":
+      case "APPROVED":
+        return {
+          label: "Đã duyệt",
+          icon: CheckCircle,
+          className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        };
+
+      case "REJECTED":
+        return {
+          label: "Đã từ chối",
+          icon: XCircle,
+          className: "bg-red-50 text-red-700 border-red-200",
+        };
+
+      case "REVIEWED":
+        return {
+          label: "Đã xem",
+          icon: Eye,
+          className: "bg-blue-50 text-blue-700 border-blue-200",
+        };
+
+      default:
+        return {
+          label: "Chờ xử lý",
+          icon: Clock4,
+          className: "bg-amber-50 text-amber-700 border-amber-200",
+        };
+    }
+  };
+
+  const stats = useMemo(() => {
+    const total = applications.length;
+
+    const pending = applications.filter(
+      (app) => getStatusValue(app.status) === "PENDING"
+    ).length;
+
+    const reviewed = applications.filter(
+      (app) => getStatusValue(app.status) === "REVIEWED"
+    ).length;
+
+    const accepted = applications.filter((app) => {
+      const currentStatus = getStatusValue(app.status);
+      return currentStatus === "ACCEPTED" || currentStatus === "APPROVED";
+    }).length;
+
+    const rejected = applications.filter(
+      (app) => getStatusValue(app.status) === "REJECTED"
+    ).length;
+
+    return {
+      total,
+      pending,
+      reviewed,
+      accepted,
+      rejected,
+    };
+  }, [applications]);
+
+  const topCandidates = useMemo(() => {
+    return [...applications]
+      .sort((a, b) => Number(b.matchScore || 0) - Number(a.matchScore || 0))
+      .slice(0, 3);
+  }, [applications]);
+
+  const handleUpdateStatus = async (appId, newStatus) => {
+    if (!appId) {
+      toast.error("Không tìm thấy hồ sơ ứng tuyển!");
+      return;
+    }
+
+    const actionText = newStatus === "ACCEPTED" ? "duyệt" : "từ chối";
+
+    if (!window.confirm(`Bạn có chắc chắn muốn ${actionText} ứng viên này?`)) {
       return;
     }
 
     try {
+      setUpdatingId(appId);
+
       await api.put(`/applications/${appId}/status`, null, {
-        params: { status: newStatus },
+        params: {
+          status: newStatus,
+        },
       });
 
       toast.success(
@@ -108,7 +272,7 @@ export default function JobApplicationsPage() {
 
       setApplications((prev) =>
         prev.map((item) =>
-          item.applicationId === appId
+          getApplicationId(item) === appId
             ? {
                 ...item,
                 status: newStatus,
@@ -125,6 +289,8 @@ export default function JobApplicationsPage() {
         "Có lỗi xảy ra khi cập nhật!";
 
       toast.error(message);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -143,12 +309,11 @@ export default function JobApplicationsPage() {
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      link.href = blobUrl;
-
       const safeName = candidateName
         ? candidateName.replace(/\s+/g, "_")
         : "UngVien";
 
+      link.href = blobUrl;
       link.download = `CV_${safeName}.pdf`;
 
       document.body.appendChild(link);
@@ -162,81 +327,78 @@ export default function JobApplicationsPage() {
     }
   };
 
-  const getStatusBadge = (statusValue) => {
-    switch (statusValue) {
-      case "ACCEPTED":
-        return (
-          <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-bold w-fit">
-            <CheckCircle className="w-3.5 h-3.5" />
-            Đã duyệt
-          </span>
-        );
-
-      case "REJECTED":
-        return (
-          <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1.5 rounded-full text-xs font-bold w-fit">
-            <XCircle className="w-3.5 h-3.5" />
-            Đã từ chối
-          </span>
-        );
-
-      case "REVIEWED":
-        return (
-          <span className="inline-flex bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold w-fit">
-            Đã xem
-          </span>
-        );
-
-      case "PENDING":
-        return (
-          <span className="inline-flex bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-full text-xs font-bold w-fit">
-            Chờ xử lý
-          </span>
-        );
-
-      default:
-        return (
-          <span className="inline-flex bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold w-fit">
-            {statusValue || "Không rõ"}
-          </span>
-        );
-    }
+  const toggleExpanded = (id) => {
+    setExpandedIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
-  const formatSalary = (salary) => {
-    if (!salary) return "Không công khai";
-    return `${Number(salary).toLocaleString("vi-VN")} VNĐ`;
-  };
+  const renderProfileFields = (app) => {
+    const fields = [
+      {
+        icon: Briefcase,
+        label: "Vị trí mong muốn",
+        value: getDesiredPosition(app),
+      },
+      {
+        icon: Wrench,
+        label: "Kỹ năng",
+        value: getCandidateSkills(app),
+        multiline: true,
+      },
+      {
+        icon: Briefcase,
+        label: "Kinh nghiệm",
+        value: formatExperience(getExperienceYears(app)),
+      },
+      {
+        icon: Wallet,
+        label: "Lương mong muốn",
+        value: formatSalary(getExpectedSalary(app)),
+      },
+      {
+        icon: GraduationCap,
+        label: "Học vấn",
+        value: getEducationLevel(app),
+      },
+      {
+        icon: Languages,
+        label: "Tiếng Anh",
+        value: getEnglishLevel(app),
+      },
+      {
+        icon: MapPin,
+        label: "Địa chỉ",
+        value: getCandidateAddress(app),
+      },
+    ].filter((item) => item.value);
 
-  const formatDate = (date) => {
-    if (!date) return "Mới nộp";
-    return new Date(date).toLocaleDateString("vi-VN");
+    return fields;
   };
-
-  const topCandidates = applications.slice(0, 3);
 
   return (
-    <div className="max-w-7xl mx-auto pb-8 sm:pb-10 space-y-5 sm:space-y-6">
+    <div className="mx-auto max-w-7xl space-y-5 pb-8 sm:space-y-6 sm:pb-10">
       {/* HEADER */}
-      <div className="flex flex-col gap-4 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3 sm:gap-4">
             <button
               type="button"
               onClick={() => router.back()}
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shrink-0"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50"
               title="Quay lại"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="h-5 w-5" />
             </button>
 
             <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
+              <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
                 Danh sách ứng viên
               </h1>
-              <p className="text-gray-500 text-sm mt-1 leading-6">
-                Hệ thống tự sắp xếp ứng viên phù hợp nhất theo yêu cầu của tin
-                tuyển dụng.
+
+              <p className="mt-1 text-sm leading-6 text-gray-500">
+                Xem hồ sơ, đánh giá độ phù hợp và xử lý ứng viên đã nộp CV.
               </p>
             </div>
           </div>
@@ -245,42 +407,53 @@ export default function JobApplicationsPage() {
             type="button"
             onClick={() => fetchApplications(true)}
             disabled={refreshing}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-600 font-medium"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-60 sm:w-auto"
           >
             <RefreshCcw
-              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
             />
             Làm mới
           </button>
         </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <SummaryCard label="Tổng hồ sơ" value={stats.total} />
+          <SummaryCard label="Chờ xử lý" value={stats.pending} />
+          <SummaryCard label="Đã xem" value={stats.reviewed} />
+          <SummaryCard label="Đã duyệt" value={stats.accepted} />
+          <SummaryCard label="Từ chối" value={stats.rejected} />
+        </div>
       </div>
 
       {/* FILTER */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-500 mb-1">
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div className="lg:col-span-2">
+            <label className="mb-1 block text-xs font-semibold text-gray-500">
               Tìm nhanh
             </label>
+
             <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+
               <input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+                className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                 placeholder="Tên, email, kỹ năng, vị trí mong muốn..."
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">
+            <label className="mb-1 block text-xs font-semibold text-gray-500">
               Trạng thái
             </label>
+
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 bg-white"
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
             >
               <option value="">Tất cả</option>
               <option value="PENDING">Chờ xử lý</option>
@@ -291,13 +464,14 @@ export default function JobApplicationsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1">
+            <label className="mb-1 block text-xs font-semibold text-gray-500">
               Số hồ sơ hiển thị
             </label>
+
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 bg-white"
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
             >
               <option value={3}>Top 3 phù hợp nhất</option>
               <option value={5}>Top 5</option>
@@ -309,248 +483,379 @@ export default function JobApplicationsPage() {
       </div>
 
       {/* TOP CANDIDATES */}
-      {!loading && !error && applications.length > 0 && (
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-100 rounded-2xl p-4 sm:p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Star className="w-5 h-5 text-amber-500 shrink-0" />
-            <h2 className="text-base sm:text-lg font-bold text-gray-800">
+      {!loading && !error && topCandidates.length > 0 && (
+        <section className="rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-green-50 p-4 sm:p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Star className="h-5 w-5 shrink-0 text-amber-500" />
+
+            <h2 className="text-base font-bold text-gray-900 sm:text-lg">
               Top ứng viên phù hợp nhất
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {topCandidates.map((app, index) => (
-              <div
-                key={app.applicationId}
-                className="bg-white rounded-xl border border-emerald-100 p-4 shadow-sm"
-              >
-                <div className="flex items-center justify-between mb-2 gap-2">
-                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full">
-                    Top {index + 1}
-                  </span>
-
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-full flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5" />
-                    {app.matchScore || 0} điểm
-                  </span>
-                </div>
-
-                <h3 className="font-bold text-gray-900 line-clamp-1">
-                  {app.fullName || "Ứng viên"}
-                </h3>
-
-                <p className="text-sm text-gray-500 mt-1 line-clamp-1">
-                  {app.desiredPosition || app.jobTitle || "Chưa cập nhật vị trí"}
-                </p>
-
-                <p className="text-xs text-gray-400 mt-2 line-clamp-2">
-                  {app.skills || "Chưa cập nhật kỹ năng"}
-                </p>
-              </div>
+              <TopCandidateCard
+                key={getApplicationId(app)}
+                index={index}
+                app={app}
+                getCandidateName={getCandidateName}
+                getDesiredPosition={getDesiredPosition}
+                getCandidateSkills={getCandidateSkills}
+              />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* LIST */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 px-4 text-center">
-            <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-            <span className="text-gray-500 font-medium">
+          <div className="flex flex-col items-center justify-center gap-3 px-4 py-20 text-center">
+            <Loader2 className="h-9 w-9 animate-spin text-emerald-600" />
+
+            <span className="font-medium text-gray-500">
               Đang tải danh sách hồ sơ...
             </span>
           </div>
         ) : error ? (
-          <div className="text-center py-16 sm:py-20 m-4 sm:m-6 text-red-500 font-medium bg-red-50 rounded-xl px-4">
-            {error}
+          <div className="m-4 rounded-xl border border-red-100 bg-red-50 px-4 py-12 text-center text-red-600 sm:m-6">
+            <AlertCircle className="mx-auto mb-3 h-9 w-9" />
+
+            <p className="font-semibold leading-6">{error}</p>
+
+            <button
+              type="button"
+              onClick={() => fetchApplications(true)}
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-red-600"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Thử lại
+            </button>
           </div>
         ) : applications.length === 0 ? (
-          <div className="text-center py-16 sm:py-20 flex flex-col items-center px-4">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-              <FileText className="w-8 h-8 text-gray-300" />
+          <div className="flex flex-col items-center px-4 py-16 text-center sm:py-20">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
+              <FileText className="h-8 w-8 text-gray-300" />
             </div>
-            <p className="text-base sm:text-lg font-medium text-gray-600">
+
+            <p className="text-base font-semibold text-gray-600 sm:text-lg">
               Chưa có ứng viên nào nộp hồ sơ!
             </p>
-            <p className="text-sm text-gray-400 mt-1">
+
+            <p className="mt-1 text-sm text-gray-400">
               Hãy chia sẻ tin tuyển dụng để thu hút thêm ứng viên nhé.
             </p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {applications.map((app) => (
-              <div
-                key={app.applicationId}
-                className="p-4 sm:p-5 hover:bg-gray-50/70 transition-colors"
-              >
-                <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-5">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-2">
-                      <div className="w-11 h-11 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 shrink-0">
-                        <User className="w-5 h-5" />
-                      </div>
+            {applications.map((app) => {
+              const applicationId = getApplicationId(app);
+              const candidateName = getCandidateName(app);
+              const candidateEmail = getCandidateEmail(app);
+              const candidatePhone = getCandidatePhone(app);
+              const coverLetter = getCoverLetter(app);
+              const projects = getProjects(app);
+              const certificates = getCertificates(app);
+              const cvUrl = getCvUrl(app);
+              const profileFields = renderProfileFields(app);
+              const expanded = expandedIds[applicationId];
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                          <h3 className="font-bold text-gray-900 text-lg leading-6">
-                            {app.fullName || "Ứng viên ẩn danh"}
-                          </h3>
+              const statusDisplay = getStatusDisplay(app.status);
+              const StatusIcon = statusDisplay.icon;
+              const currentStatus = getStatusValue(app.status);
 
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold w-fit">
-                            <Star className="w-3.5 h-3.5" />
-                            Phù hợp {app.matchScore || 0} điểm
-                          </span>
+              return (
+                <article
+                  key={applicationId}
+                  className="p-4 transition-colors hover:bg-gray-50/70 sm:p-5"
+                >
+                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_230px]">
+                    {/* MAIN INFO */}
+                    <div className="min-w-0">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                          <User className="h-5 w-5" />
                         </div>
 
-                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 text-sm text-gray-500 mt-2">
-                          <span className="flex items-center gap-1 min-w-0">
-                            <Mail className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">
-                              {app.email || "Không có email"}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <h3 className="text-lg font-bold leading-6 text-gray-900">
+                              {candidateName}
+                            </h3>
+
+                            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+                              <Star className="h-3.5 w-3.5" />
+                              Phù hợp {app.matchScore || 0} điểm
                             </span>
-                          </span>
+                          </div>
 
-                          <span className="flex items-center gap-1">
-                            <Phone className="w-3.5 h-3.5 shrink-0" />
-                            {app.phone || "Chưa cập nhật SĐT"}
-                          </span>
+                          <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-gray-500 sm:grid-cols-2">
+                            <ContactLine icon={Mail} value={candidateEmail} />
+                            <ContactLine icon={Phone} value={candidatePhone} />
+                          </div>
                         </div>
+                      </div>
+
+                      {/* PROFILE FIELDS */}
+                      {profileFields.length > 0 && (
+                        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {profileFields
+                            .slice(0, expanded ? profileFields.length : 6)
+                            .map((field) => (
+                              <ProfileField
+                                key={field.label}
+                                icon={field.icon}
+                                label={field.label}
+                                value={field.value}
+                                multiline={field.multiline}
+                              />
+                            ))}
+                        </div>
+                      )}
+
+                      {(projects || certificates || coverLetter) && (
+                        <div className="mt-4 space-y-3">
+                          {projects && expanded && (
+                            <TextBlock
+                              icon={FolderGit2}
+                              label="Dự án"
+                              value={projects}
+                            />
+                          )}
+
+                          {certificates && expanded && (
+                            <TextBlock
+                              icon={GraduationCap}
+                              label="Chứng chỉ"
+                              value={certificates}
+                            />
+                          )}
+
+                          {coverLetter && (
+                            <TextBlock
+                              icon={MessageSquareText}
+                              label="Thư ứng tuyển"
+                              value={coverLetter}
+                              collapsed={!expanded}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs text-gray-400">
+                          Ngày nộp: {formatDate(app.appliedAt)}
+                        </p>
+
+                        {(profileFields.length > 6 ||
+                          projects ||
+                          certificates ||
+                          coverLetter) && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(applicationId)}
+                            className="inline-flex w-fit items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700"
+                          >
+                            {expanded ? (
+                              <>
+                                Thu gọn
+                                <ChevronUp className="h-4 w-4" />
+                              </>
+                            ) : (
+                              <>
+                                Xem thêm hồ sơ
+                                <ChevronDown className="h-4 w-4" />
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {app.desiredPosition && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold">
-                          <Briefcase className="w-3.5 h-3.5" />
-                          {app.desiredPosition}
-                        </span>
-                      )}
-
-                      {app.experienceYears !== null &&
-                        app.experienceYears !== undefined && (
-                          <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold">
-                            {app.experienceYears} năm kinh nghiệm
-                          </span>
-                        )}
-
-                      {app.address && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {app.address}
-                        </span>
-                      )}
-
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-semibold">
-                        <Wallet className="w-3.5 h-3.5" />
-                        {formatSalary(app.expectedSalary)}
+                    {/* ACTIONS */}
+                    <aside className="flex flex-col gap-2 xl:items-stretch">
+                      <span
+                        className={`inline-flex w-fit items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-bold xl:w-full xl:justify-center ${statusDisplay.className}`}
+                      >
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        {statusDisplay.label}
                       </span>
 
-                      {app.educationLevel && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-semibold">
-                          <GraduationCap className="w-3.5 h-3.5" />
-                          {app.educationLevel}
+                      {cvUrl ? (
+                        <>
+                          <a
+                            href={cvUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-600 transition hover:bg-blue-100"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Xem CV
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDownloadCV(cvUrl, candidateName)
+                            }
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-100"
+                          >
+                            <Download className="h-4 w-4" />
+                            Tải CV
+                          </button>
+                        </>
+                      ) : (
+                        <span className="w-full rounded-xl bg-gray-50 px-4 py-2.5 text-center text-sm text-gray-400">
+                          Không có CV
                         </span>
                       )}
 
-                      {app.englishLevel && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-700 text-xs font-semibold">
-                          <Languages className="w-3.5 h-3.5" />
-                          {app.englishLevel}
+                      {currentStatus === "PENDING" ||
+                      currentStatus === "REVIEWED" ? (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateStatus(applicationId, "ACCEPTED")
+                            }
+                            disabled={updatingId === applicationId}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {updatingId === applicationId ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                            Duyệt
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateStatus(applicationId, "REJECTED")
+                            }
+                            disabled={updatingId === applicationId}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
+                          >
+                            {updatingId === applicationId ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <XCircle className="h-4 w-4" />
+                            )}
+                            Từ chối
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="w-full rounded-xl px-4 py-2.5 text-center text-sm italic text-gray-400">
+                          Đã xử lý
                         </span>
                       )}
-                    </div>
-
-                    {app.skills && (
-                      <p className="text-sm text-gray-600 mt-3 leading-6 break-words">
-                        <b>Kỹ năng:</b> {app.skills}
-                      </p>
-                    )}
-
-                    {app.projects && (
-                      <p className="text-sm text-gray-600 mt-2 line-clamp-2 leading-6">
-                        <b>Dự án:</b> {app.projects}
-                      </p>
-                    )}
-
-                    {app.coverLetter && (
-                      <p className="text-sm text-gray-500 italic mt-2 line-clamp-2 leading-6">
-                        “{app.coverLetter}”
-                      </p>
-                    )}
-
-                    <p className="text-xs text-gray-400 mt-3">
-                      Ngày nộp: {formatDate(app.appliedAt)}
-                    </p>
+                    </aside>
                   </div>
-
-                  {/* ACTIONS */}
-                  <div className="flex flex-col sm:flex-row xl:flex-col gap-2 shrink-0 w-full xl:w-auto">
-                    <div className="mb-1 xl:mb-0">{getStatusBadge(app.status)}</div>
-
-                    {app.cvUrl ? (
-                      <>
-                        <a
-                          href={app.cvUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full xl:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg font-semibold text-sm"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Xem CV
-                        </a>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadCV(app.cvUrl, app.fullName)}
-                          className="w-full xl:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg font-semibold text-sm"
-                        >
-                          <Download className="w-4 h-4" />
-                          Tải CV
-                        </button>
-                      </>
-                    ) : (
-                      <span className="w-full xl:w-auto text-center px-4 py-2 text-sm text-gray-400 bg-gray-50 rounded-lg">
-                        Không có CV
-                      </span>
-                    )}
-
-                    {app.status === "PENDING" ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleUpdateStatus(app.applicationId, "ACCEPTED")
-                          }
-                          className="w-full xl:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg font-semibold text-sm"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Duyệt
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleUpdateStatus(app.applicationId, "REJECTED")
-                          }
-                          className="w-full xl:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-semibold text-sm"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Từ chối
-                        </button>
-                      </>
-                    ) : (
-                      <span className="w-full xl:w-auto text-center text-sm text-gray-400 italic px-4 py-2">
-                        Đã xử lý
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }) {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-center">
+      <p className="text-xl font-bold text-gray-900">
+        {Number(value || 0).toLocaleString("vi-VN")}
+      </p>
+
+      <p className="mt-1 text-xs font-medium text-gray-500">{label}</p>
+    </div>
+  );
+}
+
+function TopCandidateCard({
+  index,
+  app,
+  getCandidateName,
+  getDesiredPosition,
+  getCandidateSkills,
+}) {
+  return (
+    <div className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+          Top {index + 1}
+        </span>
+
+        <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700">
+          <Star className="h-3.5 w-3.5" />
+          {app.matchScore || 0} điểm
+        </span>
+      </div>
+
+      <h3 className="line-clamp-1 font-bold text-gray-900">
+        {getCandidateName(app)}
+      </h3>
+
+      <p className="mt-1 line-clamp-1 text-sm text-gray-500">
+        {getDesiredPosition(app)}
+      </p>
+
+      <p className="mt-2 line-clamp-2 text-xs text-gray-400">
+        {getCandidateSkills(app) || "Chưa cập nhật kỹ năng"}
+      </p>
+    </div>
+  );
+}
+
+function ContactLine({ icon: Icon, value }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+
+      <span className="truncate">{value}</span>
+    </span>
+  );
+}
+
+function ProfileField({ icon: Icon, label, value, multiline = false }) {
+  return (
+    <div className="flex min-w-0 items-start gap-2 rounded-xl bg-gray-50 p-3">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-gray-400">{label}</p>
+
+        <p
+          className={`text-sm font-semibold text-gray-700 ${
+            multiline ? "line-clamp-3 whitespace-pre-wrap" : "truncate"
+          }`}
+          title={typeof value === "string" ? value : undefined}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function TextBlock({ icon: Icon, label, value, collapsed = false }) {
+  return (
+    <div className="rounded-xl bg-gray-50 p-3">
+      <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-gray-500">
+        <Icon className="h-4 w-4" />
+        {label}
+      </div>
+
+      <p
+        className={`whitespace-pre-wrap text-sm leading-6 text-gray-700 ${
+          collapsed ? "line-clamp-2" : ""
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }

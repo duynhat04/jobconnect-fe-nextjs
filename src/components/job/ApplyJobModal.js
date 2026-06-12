@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import api from "@/services/axios";
 import {
   X,
@@ -9,6 +10,18 @@ import {
   FileText,
   CheckCircle2,
   AlertCircle,
+  Mail,
+  Phone,
+  User,
+  Wrench,
+  Briefcase,
+  Wallet,
+  GraduationCap,
+  Languages,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 
 export default function ApplyJobModal({
@@ -19,6 +32,10 @@ export default function ApplyJobModal({
 }) {
   const [cvList, setCvList] = useState([]);
   const [loadingCVs, setLoadingCVs] = useState(true);
+
+  const [candidateProfile, setCandidateProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [showFullProfile, setShowFullProfile] = useState(false);
 
   const [applyMethod, setApplyMethod] = useState("system");
   const [selectedCvId, setSelectedCvId] = useState(null);
@@ -31,45 +48,75 @@ export default function ApplyJobModal({
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    const fetchMyCVs = async () => {
-      try {
-        setLoadingCVs(true);
-        setError("");
+    fetchMyCVs();
+    fetchCandidateProfile();
+  }, []);
 
-        const res = await api.get("/cv");
+  const fetchMyCVs = async () => {
+    try {
+      setLoadingCVs(true);
+      setError("");
 
-        const list = Array.isArray(res)
-          ? res
-          : Array.isArray(res?.content)
-          ? res.content
-          : Array.isArray(res?.data)
-          ? res.data
-          : [];
+      const res = await api.get("/cv");
 
-        setCvList(list);
+      const list = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.content)
+        ? res.content
+        : Array.isArray(res?.data)
+        ? res.data
+        : [];
 
-        const defaultCv = list.find((cv) => cv.isDefault === true) || list[0];
+      setCvList(list);
 
-        if (defaultCv?.id) {
-          setSelectedCvId(defaultCv.id);
-          setApplyMethod("system");
-        } else {
-          setSelectedCvId(null);
-          setApplyMethod("upload");
-        }
-      } catch (err) {
-        console.error("Lỗi lấy danh sách CV:", err);
+      const defaultCv = list.find((cv) => cv.isDefault === true) || list[0];
 
-        setCvList([]);
+      if (defaultCv?.id) {
+        setSelectedCvId(defaultCv.id);
+        setApplyMethod("system");
+      } else {
         setSelectedCvId(null);
         setApplyMethod("upload");
-      } finally {
-        setLoadingCVs(false);
       }
-    };
+    } catch (err) {
+      console.error("Lỗi lấy danh sách CV:", err);
 
-    fetchMyCVs();
-  }, []);
+      setCvList([]);
+      setSelectedCvId(null);
+      setApplyMethod("upload");
+    } finally {
+      setLoadingCVs(false);
+    }
+  };
+
+  const fetchCandidateProfile = async () => {
+    try {
+      setLoadingProfile(true);
+
+      let profile = null;
+
+      try {
+        profile = await api.get("/users/profile");
+      } catch (apiError) {
+        console.warn("Không lấy được /users/profile, dùng localStorage user.");
+      }
+
+      if (!profile && typeof window !== "undefined") {
+        const userString = localStorage.getItem("user");
+
+        if (userString && userString !== "undefined" && userString !== "null") {
+          profile = JSON.parse(userString);
+        }
+      }
+
+      setCandidateProfile(profile || null);
+    } catch (error) {
+      console.error("Lỗi lấy profile ứng viên:", error);
+      setCandidateProfile(null);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -169,9 +216,75 @@ export default function ApplyJobModal({
     return cv.cvName || cv.fileName || cv.name || "CV chưa đặt tên";
   };
 
+  const formatSalary = (value) => {
+    if (value === null || value === undefined || value === "") return "";
+
+    const numberValue = Number(value);
+
+    if (Number.isNaN(numberValue)) return "";
+
+    return `${numberValue.toLocaleString("vi-VN")} VNĐ`;
+  };
+
+  const formatExperience = (value) => {
+    if (value === null || value === undefined || value === "") return "";
+    return `${value} năm kinh nghiệm`;
+  };
+
+  const getProfileFields = () => {
+    const profile = candidateProfile || {};
+
+    return [
+      {
+        icon: User,
+        label: "Họ tên",
+        value: profile.fullName || profile.name,
+      },
+      {
+        icon: Mail,
+        label: "Email",
+        value: profile.email,
+      },
+      {
+        icon: Phone,
+        label: "Số điện thoại",
+        value: profile.phone,
+      },
+      {
+        icon: Wrench,
+        label: "Kỹ năng",
+        value: profile.skills,
+        multiline: true,
+      },
+      {
+        icon: Briefcase,
+        label: "Kinh nghiệm",
+        value: formatExperience(profile.experienceYears),
+      },
+      {
+        icon: Wallet,
+        label: "Lương mong muốn",
+        value: formatSalary(profile.expectedSalary),
+      },
+      {
+        icon: GraduationCap,
+        label: "Học vấn",
+        value: profile.educationLevel,
+      },
+      {
+        icon: Languages,
+        label: "Tiếng Anh",
+        value: profile.englishLevel,
+      },
+    ].filter((item) => item.value);
+  };
+
+  const profileFields = getProfileFields();
+  const previewFields = showFullProfile ? profileFields : profileFields.slice(0, 4);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 py-4 backdrop-blur-sm sm:p-4">
-      <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex max-h-[94vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         {/* HEADER */}
         <div className="flex items-start justify-between gap-4 border-b border-gray-100 bg-gray-50 px-4 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0">
@@ -205,6 +318,76 @@ export default function ApplyJobModal({
                 <span className="leading-6">{error}</span>
               </div>
             )}
+
+            {/* PROFILE SNAPSHOT */}
+            <section className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-800">
+                    Thông tin hồ sơ sẽ gửi
+                  </h3>
+
+                  <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                    Hệ thống sẽ lấy các thông tin này từ hồ sơ cá nhân của bạn.
+                  </p>
+                </div>
+
+                <Link
+                  href="/candidate/profile"
+                  className="inline-flex w-fit items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800"
+                >
+                  Cập nhật hồ sơ
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              {loadingProfile ? (
+                <div className="flex items-center gap-2 rounded-xl bg-white p-3 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                  Đang tải thông tin hồ sơ...
+                </div>
+              ) : profileFields.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {previewFields.map((field) => (
+                      <ProfileField
+                        key={field.label}
+                        icon={field.icon}
+                        label={field.label}
+                        value={field.value}
+                        multiline={field.multiline}
+                      />
+                    ))}
+                  </div>
+
+                  {profileFields.length > 4 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFullProfile((prev) => !prev)}
+                      className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800"
+                    >
+                      {showFullProfile ? (
+                        <>
+                          Thu gọn
+                          <ChevronUp className="h-4 w-4" />
+                        </>
+                      ) : (
+                        <>
+                          Xem thêm thông tin
+                          <ChevronDown className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm leading-6 text-amber-700">
+                  Hồ sơ cá nhân của bạn chưa đầy đủ. Bạn vẫn có thể ứng tuyển,
+                  nhưng nên cập nhật thêm email, số điện thoại, kỹ năng và kinh
+                  nghiệm để nhà tuyển dụng đánh giá tốt hơn.
+                </div>
+              )}
+            </section>
 
             {/* TAB */}
             <div className="grid grid-cols-2 rounded-xl bg-gray-100 p-1">
@@ -240,19 +423,20 @@ export default function ApplyJobModal({
               </button>
             </div>
 
-            {/* CONTENT */}
+            {/* CV CONTENT */}
             <div className="min-h-[130px]">
               {applyMethod === "system" ? (
                 <div className="space-y-3">
                   {loadingCVs ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center">
                       <Loader2 className="mb-3 h-7 w-7 animate-spin text-emerald-500" />
+
                       <p className="text-sm text-gray-500">
                         Đang tải danh sách CV...
                       </p>
                     </div>
                   ) : cvList.length > 0 ? (
-                    <div className="max-h-[260px] space-y-3 overflow-y-auto pr-1">
+                    <div className="max-h-[240px] space-y-3 overflow-y-auto pr-1">
                       {cvList.map((cv) => (
                         <label
                           key={cv.id}
@@ -397,6 +581,27 @@ export default function ApplyJobModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function ProfileField({ icon: Icon, label, value, multiline = false }) {
+  return (
+    <div className="flex min-w-0 items-start gap-2 rounded-lg bg-white p-2.5">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-gray-400">{label}</p>
+
+        <p
+          className={`text-sm font-semibold text-gray-700 ${
+            multiline ? "line-clamp-3 whitespace-pre-wrap" : "truncate"
+          }`}
+          title={typeof value === "string" ? value : undefined}
+        >
+          {value}
+        </p>
       </div>
     </div>
   );

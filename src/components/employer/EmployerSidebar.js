@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,15 +10,17 @@ import {
   Building,
   LogOut,
   Menu,
-  Gem,
+  Bot,
   Package,
 } from "lucide-react";
 
-export default function EmployerSidebar({ isMobile = false }) {
+export default function EmployerSidebar({
+  isMobile = false,
+  isCollapsed = false,
+  setIsCollapsed,
+}) {
   const pathname = usePathname();
   const { logout } = useAuth();
-
-  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const menuItems = [
     {
@@ -40,7 +41,7 @@ export default function EmployerSidebar({ isMobile = false }) {
     {
       name: "AI hỗ trợ tuyển dụng",
       path: "/employer/ai",
-      icon: Gem,
+      icon: Bot,
     },
     {
       name: "Hồ sơ công ty",
@@ -66,6 +67,12 @@ export default function EmployerSidebar({ isMobile = false }) {
     ? "relative h-full min-h-full"
     : "fixed left-0 top-0 bottom-0 h-screen";
 
+  const handleToggleSidebar = () => {
+    if (isMobile) return;
+
+    setIsCollapsed?.((prev) => !prev);
+  };
+
   const handleLogout = () => {
     logout();
   };
@@ -75,28 +82,33 @@ export default function EmployerSidebar({ isMobile = false }) {
       className={`${sidebarPosition} ${sidebarWidth} z-50 flex shrink-0 flex-col border-r border-slate-800 bg-[#0f172a] text-slate-300 shadow-xl transition-all duration-300 ease-in-out`}
     >
       {/* HEADER */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-800/50 px-4">
-        <Link
-          href="/"
-          className={`flex items-center gap-3 overflow-hidden transition-all duration-300 hover:opacity-80 ${
-            collapsed ? "w-0 opacity-0" : "w-full opacity-100"
-          }`}
-        >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500">
-            <span className="text-xl font-black text-white">J</span>
-          </div>
+      <div
+        className={`flex h-16 shrink-0 items-center border-b border-slate-800/50 px-4 ${
+          collapsed ? "justify-center" : "justify-between"
+        }`}
+      >
+        {!collapsed && (
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-3 overflow-hidden transition-all duration-300 hover:opacity-80"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500">
+              <span className="text-xl font-black text-white">J</span>
+            </div>
 
-          <span className="whitespace-nowrap text-lg font-bold tracking-tight text-white">
-            JOBCONNECT
-          </span>
-        </Link>
+            <span className="truncate whitespace-nowrap text-lg font-bold tracking-tight text-white">
+              JOBCONNECT
+            </span>
+          </Link>
+        )}
 
         {!isMobile && (
           <button
             type="button"
-            onClick={() => setIsCollapsed((prev) => !prev)}
-            className="mx-auto shrink-0 rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-800 hover:text-emerald-400"
+            onClick={handleToggleSidebar}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-all hover:bg-slate-800 hover:text-emerald-400"
             title={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
+            aria-label={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
           >
             <Menu size={22} />
           </button>
@@ -138,7 +150,7 @@ export default function EmployerSidebar({ isMobile = false }) {
               )}
 
               {collapsed && (
-                <div className="invisible absolute left-full z-50 ml-4 whitespace-nowrap rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-xl transition-all group-hover:visible group-hover:opacity-100">
+                <div className="pointer-events-none invisible absolute left-full top-1/2 z-[999] ml-4 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-xl transition-all group-hover:visible group-hover:opacity-100">
                   {item.name}
                 </div>
               )}
@@ -152,7 +164,7 @@ export default function EmployerSidebar({ isMobile = false }) {
         <button
           type="button"
           onClick={handleLogout}
-          className={`group flex w-full items-center rounded-xl text-red-400 transition-all duration-300 hover:bg-red-500/10 hover:text-red-300 ${
+          className={`group relative flex w-full items-center rounded-xl text-red-400 transition-all duration-300 hover:bg-red-500/10 hover:text-red-300 ${
             collapsed ? "justify-center px-0 py-3" : "gap-4 px-4 py-3"
           }`}
           title={collapsed ? "Đăng xuất" : ""}
@@ -166,6 +178,12 @@ export default function EmployerSidebar({ isMobile = false }) {
             <span className="whitespace-nowrap text-[14px] font-medium">
               Đăng xuất
             </span>
+          )}
+
+          {collapsed && (
+            <div className="pointer-events-none invisible absolute left-full top-1/2 z-[999] ml-4 -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-xl transition-all group-hover:visible group-hover:opacity-100">
+              Đăng xuất
+            </div>
           )}
         </button>
       </div>

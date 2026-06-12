@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Be_Vietnam_Pro } from "next/font/google";
 import { useSearchParams, useRouter } from "next/navigation";
 import api from "@/services/axios";
 import {
@@ -11,8 +12,82 @@ import {
   Briefcase,
   Filter,
   RotateCcw,
+  ChevronDown,
+  AlertCircle,
 } from "lucide-react";
 import JobCard from "@/components/job/JobCard";
+
+const vietnamFont = Be_Vietnam_Pro({
+  subsets: ["vietnamese"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const JOB_CATEGORIES = [
+  "IT - Phần mềm",
+  "Marketing / Truyền thông",
+  "Kinh doanh / Bán hàng",
+  "Kế toán / Kiểm toán",
+  "Nhân sự",
+  "Thiết kế",
+  "Chăm sóc khách hàng",
+  "Giáo dục / Đào tạo",
+  "Tài chính / Ngân hàng",
+  "Khác",
+];
+
+const VIETNAM_PROVINCES = [
+  "Hà Nội",
+  "Huế",
+  "Hải Phòng",
+  "Đà Nẵng",
+  "Cần Thơ",
+  "Thành phố Hồ Chí Minh",
+  "Cao Bằng",
+  "Tuyên Quang",
+  "Lào Cai",
+  "Thái Nguyên",
+  "Phú Thọ",
+  "Bắc Ninh",
+  "Hưng Yên",
+  "Ninh Bình",
+  "Lai Châu",
+  "Điện Biên",
+  "Sơn La",
+  "Lạng Sơn",
+  "Quảng Ninh",
+  "Thanh Hóa",
+  "Nghệ An",
+  "Hà Tĩnh",
+  "Quảng Trị",
+  "Quảng Ngãi",
+  "Gia Lai",
+  "Khánh Hòa",
+  "Lâm Đồng",
+  "Đắk Lắk",
+  "Đồng Nai",
+  "Tây Ninh",
+  "Vĩnh Long",
+  "Đồng Tháp",
+  "Cà Mau",
+  "An Giang",
+  "Remote",
+];
+
+const getApiData = (res) => {
+  return res?.data || res || {};
+};
+
+const getArrayData = (res) => {
+  const data = getApiData(res);
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.content)) return data.content;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.content)) return data.data.content;
+
+  return [];
+};
 
 export default function JobsClient() {
   const searchParams = useSearchParams();
@@ -24,28 +99,49 @@ export default function JobsClient() {
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const hasFilter = useMemo(() => {
+    return Boolean(keyword.trim() || location || category);
+  }, [keyword, location, category]);
 
   const fetchJobs = async (kw = "", loc = "", cat = "") => {
     try {
       setLoading(true);
+      setErrorMessage("");
 
-      const params = new URLSearchParams();
+      const params = {
+        page: 0,
+        size: 50,
+      };
 
-      if (kw) params.append("keyword", kw);
-      if (loc) params.append("location", loc);
-      if (cat) params.append("category", cat);
+      if (kw.trim()) {
+        params.keyword = kw.trim();
+      }
 
-      const endpoint = params.toString()
-        ? `/jobs/search?${params.toString()}`
-        : "/jobs/search";
+      if (loc) {
+        params.location = loc;
+      }
 
-      const res = await api.get(endpoint);
+      if (cat) {
+        params.category = cat;
+      }
 
-      const jobsList = res?.content || res || [];
+      const res = await api.get("/jobs/search", {
+        params,
+      });
 
-      setJobs(Array.isArray(jobsList) ? jobsList : []);
+      setJobs(getArrayData(res));
     } catch (error) {
       console.error("Lỗi tải danh sách việc làm:", error);
+
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Không thể tải danh sách việc làm. Vui lòng thử lại sau!";
+
+      setErrorMessage(String(message));
       setJobs([]);
     } finally {
       setLoading(false);
@@ -88,6 +184,7 @@ export default function JobsClient() {
     setKeyword("");
     setLocation("");
     setCategory("");
+    setErrorMessage("");
 
     router.push("/jobs");
   };
@@ -98,141 +195,180 @@ export default function JobsClient() {
     }
   };
 
-  const hasFilter = keyword || location || category;
+  const fieldClass =
+    "h-12 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-10 text-sm font-medium leading-6 text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 sm:text-[15px]";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-8 space-y-5 sm:space-y-6">
+    <div
+      className={`${vietnamFont.className} mx-auto max-w-7xl space-y-5 px-4 py-5 text-gray-900 antialiased sm:px-6 sm:py-8 sm:space-y-6`}
+    >
       {/* SEARCH BOX */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div className="mb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-600 mb-3">
-              <Briefcase className="w-4 h-4" />
-              Việc làm mới nhất
+      <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="relative p-4 sm:p-6">
+          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-50 blur-3xl" />
+
+          <div className="relative z-10 mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
+                <Briefcase className="h-4 w-4" />
+                Việc làm mới nhất
+              </div>
+
+              <h1 className="text-xl font-bold tracking-tight text-gray-950 sm:text-2xl">
+                Tìm việc làm
+              </h1>
+
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-500">
+                Tìm kiếm công việc phù hợp theo kỹ năng, ngành nghề và địa
+                điểm.
+              </p>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
-              Tìm việc làm
-            </h1>
+            {hasFilter && (
+              <button
+                type="button"
+                onClick={handleResetFilter}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-600 transition hover:bg-gray-50 sm:w-auto"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Xóa bộ lọc
+              </button>
+            )}
+          </div>
 
-            <p className="text-sm text-gray-500 mt-1 leading-6">
-              Tìm kiếm công việc phù hợp theo kỹ năng, ngành nghề và địa điểm.
+          <div className="relative z-10 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_240px_260px_auto]">
+            {/* KEYWORD */}
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+              <input
+                type="text"
+                placeholder="Nhập tên công việc, kỹ năng, công ty..."
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className={fieldClass}
+              />
+            </div>
+
+            {/* CATEGORY */}
+            <div className="relative">
+              <List className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className={`${fieldClass} cursor-pointer appearance-none`}
+              >
+                <option value="">Tất cả ngành nghề</option>
+
+                {JOB_CATEGORIES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+
+            {/* LOCATION */}
+            <div className="relative">
+              <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+              <select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className={`${fieldClass} cursor-pointer appearance-none`}
+              >
+                <option value="">Tất cả địa điểm</option>
+
+                {VIETNAM_PROVINCES.map((province) => (
+                  <option key={province} value={province}>
+                    {province === "Remote" ? "Làm việc từ xa" : province}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+
+            {/* BUTTON */}
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white transition hover:bg-emerald-700 active:scale-[0.99] lg:w-auto lg:px-8"
+            >
+              <Search className="h-5 w-5" />
+              Tìm kiếm
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* RESULT */}
+      <section className="space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-bold text-gray-950">
+              <Filter className="h-5 w-5 text-emerald-600" />
+              Kết quả tìm kiếm
+            </h2>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Tìm thấy{" "}
+              <span className="font-bold text-emerald-600">
+                {jobs.length}
+              </span>{" "}
+              việc làm phù hợp
             </p>
           </div>
 
           {hasFilter && (
-            <button
-              type="button"
-              onClick={handleResetFilter}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Xóa bộ lọc
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {keyword.trim() && <FilterChip label={keyword.trim()} />}
+
+              {category && <FilterChip label={category} />}
+
+              {location && (
+                <FilterChip
+                  label={location === "Remote" ? "Làm việc từ xa" : location}
+                />
+              )}
+            </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_220px_auto] gap-3">
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={20}
-            />
+        {errorMessage && (
+          <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-600">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
 
-            <input
-              type="text"
-              placeholder="Nhập tên công việc, kỹ năng..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm sm:text-base"
-            />
+            <div>
+              <p className="text-sm font-bold">Không thể tải dữ liệu</p>
+              <p className="mt-1 text-sm leading-6">{errorMessage}</p>
+            </div>
           </div>
-
-          <div className="relative">
-            <List
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full pl-10 pr-9 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all appearance-none cursor-pointer text-sm sm:text-base"
-            >
-              <option value="">Tất cả ngành nghề</option>
-              <option value="it">IT - Phần mềm</option>
-              <option value="marketing">Marketing / Truyền thông</option>
-              <option value="sales">Kinh doanh / Bán hàng</option>
-              <option value="ketoan">Kế toán / Kiểm toán</option>
-            </select>
-          </div>
-
-          <div className="relative">
-            <MapPin
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-
-            <select
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full pl-10 pr-9 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all appearance-none cursor-pointer text-sm sm:text-base"
-            >
-              <option value="">Tất cả địa điểm</option>
-              <option value="Hà Nội">Hà Nội</option>
-              <option value="Hồ Chí Minh">TP. Hồ Chí Minh</option>
-              <option value="Đà Nẵng">Đà Nẵng</option>
-              <option value="Remote">Làm việc từ xa</option>
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSearch}
-            className="w-full lg:w-auto px-6 sm:px-8 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Search className="w-5 h-5" />
-            Tìm kiếm
-          </button>
-        </div>
-      </div>
-
-      {/* RESULT */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <h2 className="font-bold text-gray-800 flex items-center gap-2">
-              <Filter className="w-5 h-5 text-emerald-600" />
-              Kết quả tìm kiếm
-            </h2>
-
-            <p className="text-sm text-gray-500 mt-1">
-              Tìm thấy{" "}
-              <span className="font-bold text-emerald-600">{jobs.length}</span>{" "}
-              việc làm phù hợp
-            </p>
-          </div>
-        </div>
+        )}
 
         {loading ? (
-          <div className="bg-white rounded-2xl border border-gray-100 flex flex-col items-center justify-center py-16 sm:py-20">
-            <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-3" />
-            <p className="text-sm text-gray-500 font-medium">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-16 sm:py-20">
+            <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-500" />
+
+            <p className="text-sm font-medium text-gray-500">
               Đang tải danh sách việc làm...
             </p>
           </div>
         ) : jobs.length === 0 ? (
-          <div className="text-center py-14 sm:py-16 px-6 text-gray-500 bg-white rounded-2xl border border-gray-100">
-            <div className="w-16 h-16 rounded-full bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center mx-auto mb-4">
-              <Briefcase className="w-8 h-8 text-gray-300" />
+          <div className="rounded-2xl border border-gray-100 bg-white px-6 py-14 text-center text-gray-500 sm:py-16">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-gray-200 bg-gray-50">
+              <Briefcase className="h-8 w-8 text-gray-300" />
             </div>
 
-            <h3 className="text-lg font-bold text-gray-800">
+            <h3 className="text-lg font-bold text-gray-950">
               Không tìm thấy công việc phù hợp
             </h3>
 
-            <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto leading-6">
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
               Hãy thử thay đổi từ khóa, ngành nghề hoặc địa điểm để tìm thêm
               công việc khác.
             </p>
@@ -241,21 +377,29 @@ export default function JobsClient() {
               <button
                 type="button"
                 onClick={handleResetFilter}
-                className="mt-5 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors"
+                className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="h-4 w-4" />
                 Xóa bộ lọc
               </button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
             {jobs.map((job) => (
               <JobCard key={job.id} job={job} />
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
+  );
+}
+
+function FilterChip({ label }) {
+  return (
+    <span className="inline-flex max-w-full items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+      <span className="max-w-[180px] truncate">{label}</span>
+    </span>
   );
 }

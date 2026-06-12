@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import api from "@/services/axios";
 import {
@@ -26,8 +26,8 @@ import {
   CheckCircle2,
   Mail,
   Phone,
-  Image as ImageIcon,
   Camera,
+  Link as LinkIcon,
 } from "lucide-react";
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -52,6 +52,8 @@ const initialProfile = {
   certificates: "",
   projects: "",
   availableFrom: "",
+  portfolioUrl: "",
+  linkedinUrl: "",
 };
 
 const initialPasswordForm = {
@@ -67,6 +69,7 @@ export default function UserProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
   const [message, setMessage] = useState({ type: "", text: "" });
   const [profile, setProfile] = useState(initialProfile);
 
@@ -74,11 +77,20 @@ export default function UserProfile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
 
-  useEffect(() => {
-    fetchProfile();
+  const inputClass =
+    "w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed";
+
+  const labelClass = "mb-1 block text-sm font-semibold text-gray-700";
+
+  const showMessage = useCallback((type, text) => {
+    setMessage({ type, text });
   }, []);
 
-  const normalizeProfile = (data = {}) => {
+  const clearMessage = useCallback(() => {
+    setMessage({ type: "", text: "" });
+  }, []);
+
+  const normalizeProfile = useCallback((data = {}) => {
     return {
       fullName: data.fullName || "",
       email: data.email || "",
@@ -105,28 +117,12 @@ export default function UserProfile() {
       certificates: data.certificates || "",
       projects: data.projects || "",
       availableFrom: data.availableFrom || "",
+      portfolioUrl: data.portfolioUrl || "",
+      linkedinUrl: data.linkedinUrl || "",
     };
-  };
+  }, []);
 
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-
-      const res = await api.get("/users/profile");
-      setProfile(normalizeProfile(res || {}));
-    } catch (error) {
-      console.error("Lỗi lấy thông tin:", error);
-
-      setMessage({
-        type: "error",
-        text: "Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateLocalUser = (data) => {
+  const updateLocalUser = useCallback((data) => {
     try {
       const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -136,12 +132,43 @@ export default function UserProfile() {
           ...storedUser,
           fullName: data.fullName ?? storedUser.fullName,
           avatarUrl: data.avatarUrl ?? storedUser.avatarUrl,
+          desiredPosition: data.desiredPosition ?? storedUser.desiredPosition,
+          expectedSalary: data.expectedSalary ?? storedUser.expectedSalary,
+          skills: data.skills ?? storedUser.skills,
         })
       );
-    } catch (e) {
-      console.error("Lỗi parse thông tin user:", e);
+    } catch (error) {
+      console.error("Lỗi cập nhật local user:", error);
     }
-  };
+  }, []);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      clearMessage();
+
+      const res = await api.get("/users/profile");
+      const normalized = normalizeProfile(res || {});
+
+      setProfile(normalized);
+      updateLocalUser(normalized);
+    } catch (error) {
+      console.error("Lỗi lấy thông tin:", error);
+
+      showMessage(
+        "error",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Không thể tải thông tin hồ sơ. Vui lòng thử lại sau."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [clearMessage, normalizeProfile, showMessage, updateLocalUser]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const updateField = (field, value) => {
     setProfile((prev) => ({
@@ -149,9 +176,7 @@ export default function UserProfile() {
       [field]: value,
     }));
 
-    if (message.text) {
-      setMessage({ type: "", text: "" });
-    }
+    if (message.text) clearMessage();
   };
 
   const updatePasswordField = (field, value) => {
@@ -160,13 +185,7 @@ export default function UserProfile() {
       [field]: value,
     }));
 
-    if (message.text) {
-      setMessage({ type: "", text: "" });
-    }
-  };
-
-  const showMessage = (type, text) => {
-    setMessage({ type, text });
+    if (message.text) clearMessage();
   };
 
   const validateStrongPassword = (password) => {
@@ -201,27 +220,39 @@ export default function UserProfile() {
     return "";
   };
 
+  const isValidUrl = (value) => {
+    if (!value || !value.trim()) return true;
+
+    try {
+      const url = new URL(value.trim());
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
   const handleChooseAvatar = () => {
     avatarInputRef.current?.click();
   };
 
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files?.[0];
+  const handleAvatarChange = async (event) => {
+    const file = event.target.files?.[0];
 
     if (!file) return;
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       showMessage("error", "Ảnh đại diện chỉ hỗ trợ JPG, PNG hoặc WEBP.");
-      e.target.value = "";
+      event.target.value = "";
       return;
     }
 
     if (file.size > MAX_AVATAR_SIZE) {
       showMessage("error", "Ảnh đại diện không được vượt quá 2MB.");
-      e.target.value = "";
+      event.target.value = "";
       return;
     }
 
+    const currentAvatar = profile.avatarUrl;
     const previewUrl = URL.createObjectURL(file);
 
     setProfile((prev) => ({
@@ -236,7 +267,6 @@ export default function UserProfile() {
       formData.append("avatar", file);
 
       const updatedProfile = await api.put("/users/avatar", formData);
-
       const normalized = normalizeProfile(updatedProfile || {});
 
       setProfile(normalized);
@@ -244,9 +274,14 @@ export default function UserProfile() {
 
       showMessage("success", "Cập nhật ảnh đại diện thành công!");
 
-      setTimeout(() => setMessage({ type: "", text: "" }), 3000);
+      setTimeout(clearMessage, 3000);
     } catch (error) {
       console.error("Lỗi upload avatar:", error);
+
+      setProfile((prev) => ({
+        ...prev,
+        avatarUrl: currentAvatar,
+      }));
 
       showMessage(
         "error",
@@ -254,17 +289,15 @@ export default function UserProfile() {
           error?.message ||
           "Không thể cập nhật ảnh đại diện."
       );
-
-      fetchProfile();
     } finally {
       setIsUploadingAvatar(false);
-      e.target.value = "";
+      event.target.value = "";
       URL.revokeObjectURL(previewUrl);
     }
   };
 
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
 
     if (!passwordForm.oldPassword) {
       showMessage("error", "Vui lòng nhập mật khẩu cũ.");
@@ -272,6 +305,7 @@ export default function UserProfile() {
     }
 
     const passwordError = validateStrongPassword(passwordForm.newPassword);
+
     if (passwordError) {
       showMessage("error", passwordError);
       return;
@@ -301,7 +335,7 @@ export default function UserProfile() {
       setPasswordForm(initialPasswordForm);
       setShowChangePassword(false);
 
-      setTimeout(() => setMessage({ type: "", text: "" }), 3000);
+      setTimeout(clearMessage, 3000);
     } catch (error) {
       console.error("Lỗi đổi mật khẩu:", error);
 
@@ -318,12 +352,9 @@ export default function UserProfile() {
 
   const buildPayload = () => {
     return {
-      ...profile,
-
       fullName: profile.fullName.trim(),
       phone: profile.phone.trim(),
       address: profile.address.trim(),
-      avatarUrl: profile.avatarUrl.trim(),
       bio: profile.bio.trim(),
       skills: profile.skills.trim(),
       cvUrl: profile.cvUrl.trim(),
@@ -336,6 +367,8 @@ export default function UserProfile() {
       certificates: profile.certificates.trim(),
       projects: profile.projects.trim(),
       availableFrom: profile.availableFrom.trim(),
+      portfolioUrl: profile.portfolioUrl.trim(),
+      linkedinUrl: profile.linkedinUrl.trim(),
 
       experienceYears:
         profile.experienceYears === "" || profile.experienceYears === null
@@ -349,12 +382,9 @@ export default function UserProfile() {
     };
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const validateProfile = () => {
     if (!profile.fullName.trim()) {
-      showMessage("error", "Vui lòng nhập họ và tên.");
-      return;
+      return "Vui lòng nhập họ và tên.";
     }
 
     if (
@@ -362,8 +392,7 @@ export default function UserProfile() {
       (Number(profile.experienceYears) < 0 ||
         Number.isNaN(Number(profile.experienceYears)))
     ) {
-      showMessage("error", "Số năm kinh nghiệm không hợp lệ.");
-      return;
+      return "Số năm kinh nghiệm không hợp lệ.";
     }
 
     if (
@@ -371,13 +400,33 @@ export default function UserProfile() {
       (Number(profile.expectedSalary) < 0 ||
         Number.isNaN(Number(profile.expectedSalary)))
     ) {
-      showMessage("error", "Mức lương mong muốn không hợp lệ.");
+      return "Mức lương mong muốn không hợp lệ.";
+    }
+
+    if (!isValidUrl(profile.portfolioUrl)) {
+      return "Portfolio/Website cá nhân không đúng định dạng URL.";
+    }
+
+    if (!isValidUrl(profile.linkedinUrl)) {
+      return "LinkedIn/GitHub không đúng định dạng URL.";
+    }
+
+    return "";
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    const validationError = validateProfile();
+
+    if (validationError) {
+      showMessage("error", validationError);
       return;
     }
 
-    setIsSaving(true);
-
     try {
+      setIsSaving(true);
+
       const payload = buildPayload();
 
       const updatedProfile = await api.put("/users/profile", payload);
@@ -389,18 +438,24 @@ export default function UserProfile() {
       showMessage("success", "Cập nhật hồ sơ thành công!");
 
       setIsEditing(false);
-      setTimeout(() => setMessage({ type: "", text: "" }), 3000);
+      setTimeout(clearMessage, 3000);
     } catch (error) {
       console.error("Lỗi cập nhật hồ sơ:", error);
 
       showMessage(
         "error",
         error?.response?.data?.message ||
+          error?.message ||
           "Cập nhật thất bại, vui lòng kiểm tra lại thông tin!"
       );
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCancelEdit = async () => {
+    setIsEditing(false);
+    await fetchProfile();
   };
 
   const formatSalaryPreview = (value) => {
@@ -416,7 +471,7 @@ export default function UserProfile() {
   const renderAvatar = (size = "large") => {
     const sizeClass =
       size === "large"
-        ? "h-14 w-14 sm:h-16 sm:w-16 text-xl sm:text-2xl rounded-2xl"
+        ? "h-14 w-14 rounded-2xl text-xl sm:h-16 sm:w-16 sm:text-2xl"
         : "h-28 w-28 rounded-full text-4xl";
 
     return (
@@ -428,8 +483,8 @@ export default function UserProfile() {
             src={profile.avatarUrl}
             alt={profile.fullName || "Ảnh đại diện"}
             className="h-full w-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
             }}
           />
         ) : profile.fullName ? (
@@ -447,14 +502,9 @@ export default function UserProfile() {
     );
   };
 
-  const inputClass =
-    "w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50 disabled:text-gray-500";
-
-  const labelClass = "mb-1 block text-sm font-semibold text-gray-700";
-
   if (loading) {
     return (
-      <div className="min-h-[65vh] flex flex-col items-center justify-center px-4 text-center">
+      <div className="flex min-h-[65vh] flex-col items-center justify-center px-4 text-center">
         <Loader2 className="mb-4 h-10 w-10 animate-spin text-emerald-600" />
         <p className="font-medium text-gray-500">Đang tải hồ sơ của bạn...</p>
       </div>
@@ -462,7 +512,7 @@ export default function UserProfile() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 pb-8 sm:pb-10">
+    <div className="mx-auto max-w-6xl space-y-5 pb-8 sm:space-y-6 sm:pb-10">
       <input
         ref={avatarInputRef}
         type="file"
@@ -473,7 +523,7 @@ export default function UserProfile() {
 
       {/* HEADER */}
       <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-        <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-emerald-50 blur-3xl"></div>
+        <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-emerald-50 blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-start gap-4">
@@ -484,7 +534,7 @@ export default function UserProfile() {
                 {profile.fullName || "Người dùng mới"}
               </h1>
 
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500 break-all">
+              <p className="mt-1 flex items-center gap-1.5 break-all text-sm text-gray-500">
                 <Mail className="h-4 w-4 shrink-0" />
                 {profile.email || "Chưa cập nhật email"}
               </p>
@@ -531,7 +581,7 @@ export default function UserProfile() {
                 type="button"
                 onClick={() => {
                   setShowChangePassword((prev) => !prev);
-                  setMessage({ type: "", text: "" });
+                  clearMessage();
                 }}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-100 bg-white px-4 py-2.5 font-semibold text-amber-600 transition-colors hover:bg-amber-50"
               >
@@ -544,6 +594,7 @@ export default function UserProfile() {
                 onClick={() => {
                   setIsEditing(true);
                   setShowChangePassword(false);
+                  clearMessage();
                 }}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-white px-4 py-2.5 font-semibold text-emerald-600 transition-colors hover:bg-emerald-50"
               >
@@ -580,50 +631,41 @@ export default function UserProfile() {
             onSubmit={handleChangePassword}
             className="grid grid-cols-1 gap-4 lg:grid-cols-3"
           >
-            <div>
-              <label className={labelClass}>Mật khẩu cũ</label>
+            <FieldLabel label="Mật khẩu cũ" />
+            <input
+              type="password"
+              required
+              value={passwordForm.oldPassword}
+              onChange={(event) =>
+                updatePasswordField("oldPassword", event.target.value)
+              }
+              className={inputClass}
+              placeholder="Nhập mật khẩu cũ"
+            />
 
-              <input
-                type="password"
-                required
-                value={passwordForm.oldPassword}
-                onChange={(e) =>
-                  updatePasswordField("oldPassword", e.target.value)
-                }
-                className={inputClass}
-                placeholder="Nhập mật khẩu cũ"
-              />
-            </div>
+            <FieldLabel label="Mật khẩu mới" />
+            <input
+              type="password"
+              required
+              value={passwordForm.newPassword}
+              onChange={(event) =>
+                updatePasswordField("newPassword", event.target.value)
+              }
+              className={inputClass}
+              placeholder="VD: Jobconnect@123"
+            />
 
-            <div>
-              <label className={labelClass}>Mật khẩu mới</label>
-
-              <input
-                type="password"
-                required
-                value={passwordForm.newPassword}
-                onChange={(e) =>
-                  updatePasswordField("newPassword", e.target.value)
-                }
-                className={inputClass}
-                placeholder="VD: Jobconnect@123"
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>Xác nhận mật khẩu mới</label>
-
-              <input
-                type="password"
-                required
-                value={passwordForm.confirmPassword}
-                onChange={(e) =>
-                  updatePasswordField("confirmPassword", e.target.value)
-                }
-                className={inputClass}
-                placeholder="Nhập lại mật khẩu mới"
-              />
-            </div>
+            <FieldLabel label="Xác nhận mật khẩu mới" />
+            <input
+              type="password"
+              required
+              value={passwordForm.confirmPassword}
+              onChange={(event) =>
+                updatePasswordField("confirmPassword", event.target.value)
+              }
+              className={inputClass}
+              placeholder="Nhập lại mật khẩu mới"
+            />
 
             <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-700 lg:col-span-3">
               Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường,
@@ -689,40 +731,39 @@ export default function UserProfile() {
         className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6"
       >
         <div className="space-y-5 lg:col-span-2 lg:space-y-6">
-          {/* PERSONAL */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
-              <User size={20} className="text-emerald-500" />
-              Thông tin cá nhân
-            </h2>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+          <SectionCard
+            title="Thông tin cá nhân"
+            icon={User}
+            iconClassName="text-emerald-500"
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
               <div>
                 <label className={labelClass}>
                   Họ và tên <span className="text-red-500">*</span>
                 </label>
-
                 <input
                   type="text"
                   required
                   disabled={!isEditing}
                   value={profile.fullName}
-                  onChange={(e) => updateField("fullName", e.target.value)}
+                  onChange={(event) =>
+                    updateField("fullName", event.target.value)
+                  }
                   className={inputClass}
                 />
               </div>
 
               <div>
                 <label className={labelClass}>Số điện thoại</label>
-
                 <div className="relative">
                   <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-
                   <input
                     type="tel"
                     disabled={!isEditing}
                     value={profile.phone}
-                    onChange={(e) => updateField("phone", e.target.value)}
+                    onChange={(event) =>
+                      updateField("phone", event.target.value)
+                    }
                     className={`${inputClass} pl-10`}
                     placeholder="VD: 0987654321"
                   />
@@ -731,12 +772,13 @@ export default function UserProfile() {
 
               <div className="md:col-span-2">
                 <label className={labelClass}>Địa chỉ hiện tại</label>
-
                 <input
                   type="text"
                   disabled={!isEditing}
                   value={profile.address}
-                  onChange={(e) => updateField("address", e.target.value)}
+                  onChange={(event) =>
+                    updateField("address", event.target.value)
+                  }
                   className={inputClass}
                   placeholder="VD: Hà Nội, TP. Hồ Chí Minh, Đà Nẵng..."
                 />
@@ -744,36 +786,32 @@ export default function UserProfile() {
 
               <div className="md:col-span-2">
                 <label className={labelClass}>Giới thiệu bản thân</label>
-
                 <textarea
                   rows="4"
                   disabled={!isEditing}
                   value={profile.bio}
-                  onChange={(e) => updateField("bio", e.target.value)}
+                  onChange={(event) => updateField("bio", event.target.value)}
                   className={`${inputClass} min-h-[120px] resize-none`}
                   placeholder="Chia sẻ ngắn gọn về kinh nghiệm, điểm mạnh và định hướng nghề nghiệp..."
                 />
               </div>
             </div>
-          </div>
+          </SectionCard>
 
-          {/* CAREER */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
-              <Briefcase size={20} className="text-emerald-500" />
-              Thông tin nghề nghiệp
-            </h2>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+          <SectionCard
+            title="Thông tin nghề nghiệp"
+            icon={Briefcase}
+            iconClassName="text-emerald-500"
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
               <div>
                 <label className={labelClass}>Vị trí mong muốn</label>
-
                 <input
                   type="text"
                   disabled={!isEditing}
                   value={profile.desiredPosition}
-                  onChange={(e) =>
-                    updateField("desiredPosition", e.target.value)
+                  onChange={(event) =>
+                    updateField("desiredPosition", event.target.value)
                   }
                   className={inputClass}
                   placeholder="VD: Backend Developer"
@@ -782,12 +820,11 @@ export default function UserProfile() {
 
               <div>
                 <label className={labelClass}>Ngành nghề mong muốn</label>
-
                 <select
                   disabled={!isEditing}
                   value={profile.desiredCategory}
-                  onChange={(e) =>
-                    updateField("desiredCategory", e.target.value)
+                  onChange={(event) =>
+                    updateField("desiredCategory", event.target.value)
                   }
                   className={inputClass}
                 >
@@ -804,14 +841,13 @@ export default function UserProfile() {
 
               <div>
                 <label className={labelClass}>Số năm kinh nghiệm</label>
-
                 <input
                   type="number"
                   min="0"
                   disabled={!isEditing}
                   value={profile.experienceYears}
-                  onChange={(e) =>
-                    updateField("experienceYears", e.target.value)
+                  onChange={(event) =>
+                    updateField("experienceYears", event.target.value)
                   }
                   className={inputClass}
                   placeholder="VD: 2"
@@ -819,20 +855,14 @@ export default function UserProfile() {
               </div>
 
               <div>
-                <label className={labelClass}>
-                  Mức lương mong muốn{" "}
-                  <span className="font-normal text-gray-400">
-                    (không bắt buộc)
-                  </span>
-                </label>
-
+                <label className={labelClass}>Mức lương mong muốn</label>
                 <input
                   type="number"
                   min="0"
                   disabled={!isEditing}
                   value={profile.expectedSalary}
-                  onChange={(e) =>
-                    updateField("expectedSalary", e.target.value)
+                  onChange={(event) =>
+                    updateField("expectedSalary", event.target.value)
                   }
                   className={inputClass}
                   placeholder="VD: 12000000"
@@ -847,11 +877,12 @@ export default function UserProfile() {
 
               <div>
                 <label className={labelClass}>Hình thức làm việc</label>
-
                 <select
                   disabled={!isEditing}
                   value={profile.workType}
-                  onChange={(e) => updateField("workType", e.target.value)}
+                  onChange={(event) =>
+                    updateField("workType", event.target.value)
+                  }
                   className={inputClass}
                 >
                   <option value="">Chưa chọn</option>
@@ -865,35 +896,45 @@ export default function UserProfile() {
 
               <div>
                 <label className={labelClass}>Có thể bắt đầu</label>
-
                 <input
                   type="text"
                   disabled={!isEditing}
                   value={profile.availableFrom}
-                  onChange={(e) => updateField("availableFrom", e.target.value)}
+                  onChange={(event) =>
+                    updateField("availableFrom", event.target.value)
+                  }
                   className={inputClass}
                   placeholder="VD: Có thể đi làm ngay / Sau 2 tuần"
                 />
               </div>
+
+              <UrlInput
+                label="Portfolio / Website cá nhân"
+                icon={LinkIcon}
+                disabled={!isEditing}
+                value={profile.portfolioUrl}
+                onChange={(value) => updateField("portfolioUrl", value)}
+                placeholder="VD: https://portfolio-cua-ban.com"
+                inputClass={inputClass}
+              />
+
+              
             </div>
-          </div>
+          </SectionCard>
 
-          {/* EDUCATION */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
-              <GraduationCap size={20} className="text-emerald-500" />
-              Học vấn và năng lực
-            </h2>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+          <SectionCard
+            title="Học vấn và năng lực"
+            icon={GraduationCap}
+            iconClassName="text-emerald-500"
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
               <div>
                 <label className={labelClass}>Trình độ học vấn</label>
-
                 <select
                   disabled={!isEditing}
                   value={profile.educationLevel}
-                  onChange={(e) =>
-                    updateField("educationLevel", e.target.value)
+                  onChange={(event) =>
+                    updateField("educationLevel", event.target.value)
                   }
                   className={inputClass}
                 >
@@ -908,11 +949,12 @@ export default function UserProfile() {
 
               <div>
                 <label className={labelClass}>Trình độ tiếng Anh</label>
-
                 <select
                   disabled={!isEditing}
                   value={profile.englishLevel}
-                  onChange={(e) => updateField("englishLevel", e.target.value)}
+                  onChange={(event) =>
+                    updateField("englishLevel", event.target.value)
+                  }
                   className={inputClass}
                 >
                   <option value="">Chưa chọn</option>
@@ -926,12 +968,13 @@ export default function UserProfile() {
 
               <div className="md:col-span-2">
                 <label className={labelClass}>Chứng chỉ</label>
-
                 <textarea
                   rows="3"
                   disabled={!isEditing}
                   value={profile.certificates}
-                  onChange={(e) => updateField("certificates", e.target.value)}
+                  onChange={(event) =>
+                    updateField("certificates", event.target.value)
+                  }
                   className={`${inputClass} min-h-[100px] resize-none`}
                   placeholder="VD: Java Core, AWS, TOEIC 650..."
                 />
@@ -939,18 +982,19 @@ export default function UserProfile() {
 
               <div className="md:col-span-2">
                 <label className={labelClass}>Dự án đã làm</label>
-
                 <textarea
                   rows="4"
                   disabled={!isEditing}
                   value={profile.projects}
-                  onChange={(e) => updateField("projects", e.target.value)}
+                  onChange={(event) =>
+                    updateField("projects", event.target.value)
+                  }
                   className={`${inputClass} min-h-[120px] resize-none`}
                   placeholder="Mô tả ngắn các dự án đã tham gia, công nghệ sử dụng và vai trò của bạn..."
                 />
               </div>
             </div>
-          </div>
+          </SectionCard>
 
           {isEditing && (
             <div className="sticky bottom-4 z-10 rounded-2xl border border-gray-100 bg-white/90 p-3 shadow-lg backdrop-blur-md">
@@ -958,10 +1002,7 @@ export default function UserProfile() {
                 <button
                   type="button"
                   disabled={isSaving}
-                  onClick={() => {
-                    setIsEditing(false);
-                    fetchProfile();
-                  }}
+                  onClick={handleCancelEdit}
                   className="w-full rounded-xl bg-gray-100 px-6 py-3 font-semibold text-gray-600 hover:bg-gray-200 disabled:opacity-50 sm:w-auto"
                 >
                   Hủy
@@ -991,12 +1032,7 @@ export default function UserProfile() {
 
         {/* RIGHT */}
         <div className="space-y-5 lg:space-y-6">
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
-              <User size={20} className="text-emerald-500" />
-              Ảnh đại diện
-            </h2>
-
+          <SectionCard title="Ảnh đại diện" icon={User}>
             <div className="flex flex-col items-center text-center">
               {renderAvatar("preview")}
 
@@ -1032,19 +1068,14 @@ export default function UserProfile() {
                 Hỗ trợ JPG, PNG, WEBP. Tối đa 2MB.
               </p>
             </div>
-          </div>
+          </SectionCard>
 
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
-              <Wrench size={20} className="text-emerald-500" />
-              Kỹ năng chuyên môn
-            </h2>
-
+          <SectionCard title="Kỹ năng chuyên môn" icon={Wrench}>
             <textarea
               rows="5"
               disabled={!isEditing}
               value={profile.skills}
-              onChange={(e) => updateField("skills", e.target.value)}
+              onChange={(event) => updateField("skills", event.target.value)}
               className={`${inputClass} min-h-[150px] resize-none`}
               placeholder="VD: Java, Spring Boot, ReactJS, PostgreSQL, REST API..."
             />
@@ -1053,18 +1084,13 @@ export default function UserProfile() {
               Nên nhập các kỹ năng cách nhau bằng dấu phẩy để nhà tuyển dụng dễ
               lọc.
             </p>
-          </div>
+          </SectionCard>
 
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
-              <FileText size={20} className="text-emerald-500" />
-              CV của bạn
-            </h2>
-
+          <SectionCard title="CV của bạn" icon={FileText}>
             {profile.cvUrl ? (
               <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-4">
                 <p
-                  className="mb-3 break-all text-sm font-semibold text-emerald-800"
+                  className="mb-3 truncate text-sm font-semibold text-emerald-800"
                   title={profile.cvUrl.split("/").pop()}
                 >
                   {profile.cvUrl.split("/").pop() || "CV_cua_toi.pdf"}
@@ -1100,67 +1126,124 @@ export default function UserProfile() {
               CV vẫn là tài liệu chính khi ứng tuyển, nhưng hồ sơ có cấu trúc sẽ
               giúp nhà tuyển dụng lọc ứng viên nhanh hơn.
             </p>
-          </div>
+          </SectionCard>
 
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
-              <BadgeCheck size={20} className="text-emerald-500" />
-              Tóm tắt hồ sơ
-            </h2>
-
+          <SectionCard title="Tóm tắt hồ sơ" icon={BadgeCheck}>
             <div className="space-y-3 text-sm text-gray-600">
-              <div className="flex items-start gap-2">
-                <Briefcase size={16} className="mt-0.5 shrink-0 text-gray-400" />
-                <span>
-                  {profile.desiredPosition ||
-                    "Chưa cập nhật vị trí mong muốn"}
-                </span>
-              </div>
+              <SummaryLine
+                icon={Briefcase}
+                text={
+                  profile.desiredPosition ||
+                  "Chưa cập nhật vị trí mong muốn"
+                }
+              />
 
-              <div className="flex items-start gap-2">
-                <Wallet size={16} className="mt-0.5 shrink-0 text-gray-400" />
-                <span>{formatSalaryPreview(profile.expectedSalary)}</span>
-              </div>
+              <SummaryLine
+                icon={Wallet}
+                text={formatSalaryPreview(profile.expectedSalary)}
+              />
 
-              <div className="flex items-start gap-2">
-                <MapPin size={16} className="mt-0.5 shrink-0 text-gray-400" />
-                <span>{profile.address || "Chưa cập nhật địa chỉ"}</span>
-              </div>
+              <SummaryLine
+                icon={MapPin}
+                text={profile.address || "Chưa cập nhật địa chỉ"}
+              />
 
-              <div className="flex items-start gap-2">
-                <Languages
-                  size={16}
-                  className="mt-0.5 shrink-0 text-gray-400"
-                />
-                <span>{profile.englishLevel || "Chưa cập nhật tiếng Anh"}</span>
-              </div>
+              <SummaryLine
+                icon={Languages}
+                text={profile.englishLevel || "Chưa cập nhật tiếng Anh"}
+              />
 
-              <div className="flex items-start gap-2">
-                <FolderKanban
-                  size={16}
-                  className="mt-0.5 shrink-0 text-gray-400"
-                />
-                <span>
-                  {profile.projects
-                    ? "Đã cập nhật dự án"
-                    : "Chưa cập nhật dự án"}
-                </span>
-              </div>
+              <SummaryLine
+                icon={FolderKanban}
+                text={
+                  profile.projects ? "Đã cập nhật dự án" : "Chưa cập nhật dự án"
+                }
+              />
 
-              <div className="flex items-start gap-2">
-                <CalendarDays
-                  size={16}
-                  className="mt-0.5 shrink-0 text-gray-400"
-                />
-                <span>
-                  {profile.availableFrom ||
-                    "Chưa cập nhật thời gian bắt đầu"}
-                </span>
-              </div>
+              <SummaryLine
+                icon={CalendarDays}
+                text={
+                  profile.availableFrom || "Chưa cập nhật thời gian bắt đầu"
+                }
+              />
+
+              <SummaryLine
+                icon={LinkIcon}
+                text={
+                  profile.portfolioUrl
+                    ? "Đã cập nhật portfolio"
+                    : "Chưa cập nhật portfolio"
+                }
+              />
+
+              
             </div>
-          </div>
+          </SectionCard>
         </div>
       </form>
+    </div>
+  );
+}
+
+function SectionCard({ title, icon: Icon, children }) {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+      <h2 className="mb-4 flex items-center gap-2 border-b border-gray-50 pb-3 text-lg font-bold text-gray-800">
+        <Icon size={20} className="text-emerald-500" />
+        {title}
+      </h2>
+
+      {children}
+    </div>
+  );
+}
+
+function FieldLabel({ label }) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-semibold text-gray-700">
+        {label}
+      </label>
+    </div>
+  );
+}
+
+function UrlInput({
+  label,
+  icon: Icon,
+  disabled,
+  value,
+  onChange,
+  placeholder,
+  inputClass,
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-semibold text-gray-700">
+        {label}
+      </label>
+
+      <div className="relative">
+        <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+
+        <input
+          type="url"
+          disabled={disabled}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={`${inputClass} pl-10`}
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SummaryLine({ icon: Icon, text }) {
+  return (
+    <div className="flex items-start gap-2">
+      <Icon size={16} className="mt-0.5 shrink-0 text-gray-400" />
+      <span className="min-w-0 break-words">{text}</span>
     </div>
   );
 }

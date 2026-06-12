@@ -16,6 +16,7 @@ import {
   AlertCircle,
   RefreshCcw,
   Building2,
+  Clock,
 } from "lucide-react";
 import api from "@/services/axios";
 
@@ -28,7 +29,7 @@ export default function UserDashboard() {
     appliedCount: 0,
     viewedCount: 12,
     approvedCount: 0,
-    newJobsToday: 15,
+    newJobsToday: 0,
   });
 
   const [suggestedJobs, setSuggestedJobs] = useState([]);
@@ -54,22 +55,39 @@ export default function UserDashboard() {
         }
       }
 
-      const [appsRes, jobsRes] = await Promise.all([
+      const [appsResult, jobsResult] = await Promise.allSettled([
         api.get("/applications/my-applications"),
         api.get("/jobs"),
       ]);
 
-      const apps = Array.isArray(appsRes)
-        ? appsRes
-        : Array.isArray(appsRes?.content)
-        ? appsRes.content
-        : [];
+      let apps = [];
+      let jobs = [];
 
-      const jobs = Array.isArray(jobsRes)
-        ? jobsRes
-        : Array.isArray(jobsRes?.content)
-        ? jobsRes.content
-        : [];
+      if (appsResult.status === "fulfilled") {
+        apps = Array.isArray(appsResult.value)
+          ? appsResult.value
+          : Array.isArray(appsResult.value?.content)
+          ? appsResult.value.content
+          : [];
+      } else {
+        console.error(
+          "Lỗi /applications/my-applications:",
+          appsResult.reason?.response?.data || appsResult.reason
+        );
+      }
+
+      if (jobsResult.status === "fulfilled") {
+        jobs = Array.isArray(jobsResult.value)
+          ? jobsResult.value
+          : Array.isArray(jobsResult.value?.content)
+          ? jobsResult.value.content
+          : [];
+      } else {
+        console.error(
+          "Lỗi /jobs:",
+          jobsResult.reason?.response?.data || jobsResult.reason
+        );
+      }
 
       setStats((prev) => ({
         ...prev,
@@ -78,9 +96,27 @@ export default function UserDashboard() {
           const status = String(a.status || "").toUpperCase();
           return status === "APPROVED" || status === "ACCEPTED";
         }).length,
+        newJobsToday: jobs.length,
       }));
 
-      setSuggestedJobs(jobs.slice(0, 4));
+      setSuggestedJobs(jobs.slice(0, 2));
+
+      if (
+        appsResult.status === "rejected" &&
+        jobsResult.status === "rejected"
+      ) {
+        const message =
+          appsResult.reason?.response?.data?.message ||
+          jobsResult.reason?.response?.data?.message ||
+          "Không thể tải dữ liệu dashboard. Vui lòng thử lại sau.";
+
+        setError(message);
+      } else if (
+        appsResult.status === "rejected" ||
+        jobsResult.status === "rejected"
+      ) {
+        setError("Một phần dữ liệu dashboard chưa tải được. Vui lòng làm mới lại.");
+      }
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu dashboard:", err);
 
@@ -98,6 +134,27 @@ export default function UserDashboard() {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  const getCompanyName = (job) => {
+    return job?.companyName || job?.company?.name || "Công ty ẩn danh";
+  };
+
+  const getCompanyLogo = (job) => {
+    return job?.companyLogo || job?.company?.logo || "";
+  };
+
+  const getEmploymentTypeText = (job) => {
+    const type = job?.employmentType || job?.jobType || job?.company?.employmentType;
+
+    if (type === "FULL_TIME") return "Toàn thời gian";
+    if (type === "PART_TIME") return "Bán thời gian";
+
+    return "Chưa cập nhật";
+  };
+
+  const getLocation = (job) => {
+    return job?.location || "Toàn quốc";
+  };
 
   const statCards = [
     {
@@ -125,7 +182,7 @@ export default function UserDashboard() {
       link: "/applied-jobs",
     },
     {
-      title: "Cơ hội mới hôm nay",
+      title: "Cơ hội đang mở",
       value: stats.newJobsToday,
       icon: TrendingUp,
       color: "text-orange-600",
@@ -135,16 +192,45 @@ export default function UserDashboard() {
   ];
 
   const formatSalary = (job) => {
-    if (job.salary) {
+    if (job?.salary) {
       return `${Number(job.salary).toLocaleString("vi-VN")}đ`;
     }
 
-    if (job.minSalary) {
+    if (job?.minSalary) {
       return `${Number(job.minSalary).toLocaleString("vi-VN")}đ`;
     }
 
     return "Thỏa thuận";
   };
+
+  const formatExpectedSalary = (salary) => {
+    if (!salary) return "Chưa cập nhật";
+    return `${Number(salary).toLocaleString("vi-VN")}đ`;
+  };
+
+  const calculateProfilePercent = () => {
+    const fields = [
+      user?.fullName,
+      user?.phone,
+      user?.address,
+      user?.skills,
+      user?.desiredPosition,
+      user?.desiredCategory,
+      user?.experienceYears !== null && user?.experienceYears !== undefined
+        ? String(user.experienceYears)
+        : "",
+      user?.expectedSalary,
+      user?.educationLevel,
+      user?.englishLevel,
+      user?.cvUrl,
+    ];
+
+    const completed = fields.filter((field) => field && String(field).trim()).length;
+
+    return Math.round((completed / fields.length) * 100);
+  };
+
+  const profilePercent = calculateProfilePercent();
 
   if (loading) {
     return (
@@ -234,7 +320,7 @@ export default function UserDashboard() {
                 <Icon className={`${item.color} w-6 h-6 shrink-0`} />
 
                 <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Tháng này
+                  Tổng quan
                 </span>
               </div>
 
@@ -276,61 +362,71 @@ export default function UserDashboard() {
 
             <div className="space-y-3 sm:space-y-4">
               {suggestedJobs.length > 0 ? (
-                suggestedJobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="group rounded-2xl border border-gray-100 bg-white p-4 transition-all hover:border-emerald-100 hover:shadow-md"
-                  >
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <div className="w-14 h-14 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center font-bold text-gray-400 group-hover:text-emerald-500 shrink-0">
-                        {job.company?.logo ? (
-                          <img
-                            src={job.company.logo}
-                            alt={job.company?.name || "Company"}
-                            className="w-full h-full object-cover rounded-xl"
-                          />
-                        ) : (
-                          job.company?.name?.charAt(0) || "C"
-                        )}
-                      </div>
+                suggestedJobs.map((job) => {
+                  const companyName = getCompanyName(job);
+                  const companyLogo = getCompanyLogo(job);
 
-                      <div className="flex-1 min-w-0">
+                  return (
+                    <div
+                      key={job.id}
+                      className="group rounded-2xl border border-gray-100 bg-white p-4 transition-all hover:border-emerald-100 hover:shadow-md"
+                    >
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="w-14 h-14 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center font-bold text-gray-400 group-hover:text-emerald-500 shrink-0 overflow-hidden">
+                          {companyLogo ? (
+                            <img
+                              src={companyLogo}
+                              alt={companyName}
+                              className="w-full h-full object-cover rounded-xl"
+                            />
+                          ) : (
+                            companyName?.charAt(0) || "C"
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/jobs/${job.id}`}
+                            className="font-bold text-gray-800 group-hover:text-emerald-600 line-clamp-2"
+                          >
+                            {job.title}
+                          </Link>
+
+                          <p className="mt-1 flex items-center gap-1 text-sm text-gray-500 truncate">
+                            <Building2 className="w-4 h-4 shrink-0" />
+                            {companyName}
+                          </p>
+
+                          <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm">
+                            <span className="flex items-center gap-1 text-gray-500 min-w-0">
+                              <MapPin size={14} className="shrink-0" />
+                              <span className="truncate">
+                                {getLocation(job)}
+                              </span>
+                            </span>
+
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <Clock size={14} className="shrink-0" />
+                              {getEmploymentTypeText(job)}
+                            </span>
+
+                            <span className="flex items-center gap-1 text-emerald-600 font-bold">
+                              <CircleDollarSign size={14} />
+                              {formatSalary(job)}
+                            </span>
+                          </div>
+                        </div>
+
                         <Link
                           href={`/jobs/${job.id}`}
-                          className="font-bold text-gray-800 group-hover:text-emerald-600 line-clamp-2"
+                          className="w-full sm:w-auto self-stretch sm:self-center inline-flex items-center justify-center rounded-xl border border-emerald-600 px-4 py-2.5 text-sm font-bold text-emerald-600 transition-all hover:bg-emerald-600 hover:text-white shrink-0"
                         >
-                          {job.title}
+                          Ứng tuyển
                         </Link>
-
-                        <p className="mt-1 flex items-center gap-1 text-sm text-gray-500 truncate">
-                          <Building2 className="w-4 h-4 shrink-0" />
-                          {job.company?.name || "Công ty ẩn danh"}
-                        </p>
-
-                        <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm">
-                          <span className="flex items-center gap-1 text-gray-500 min-w-0">
-                            <MapPin size={14} className="shrink-0" />
-                            <span className="truncate">
-                              {job.location || "Toàn quốc"}
-                            </span>
-                          </span>
-
-                          <span className="flex items-center gap-1 text-emerald-600 font-bold">
-                            <CircleDollarSign size={14} />
-                            {formatSalary(job)}
-                          </span>
-                        </div>
                       </div>
-
-                      <Link
-                        href={`/jobs/${job.id}`}
-                        className="w-full sm:w-auto self-stretch sm:self-center inline-flex items-center justify-center rounded-xl border border-emerald-600 px-4 py-2.5 text-sm font-bold text-emerald-600 transition-all hover:bg-emerald-600 hover:text-white shrink-0"
-                      >
-                        Ứng tuyển
-                      </Link>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-5 py-12 text-center text-gray-500">
                   <Briefcase className="mx-auto mb-3 h-10 w-10 text-gray-300" />
@@ -362,13 +458,13 @@ export default function UserDashboard() {
             </h3>
 
             <div className="relative z-10 text-4xl font-extrabold mb-4">
-              70%
+              {profilePercent}%
             </div>
 
             <div className="relative z-10 w-full bg-white/20 h-2 rounded-full mb-4">
               <div
-                className="bg-white h-2 rounded-full"
-                style={{ width: "70%" }}
+                className="bg-white h-2 rounded-full transition-all"
+                style={{ width: `${profilePercent}%` }}
               ></div>
             </div>
 
@@ -393,20 +489,29 @@ export default function UserDashboard() {
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm">
                 <span className="text-gray-500">Vị trí</span>
                 <span className="font-semibold text-gray-800">
-                  {user?.desiredPosition || "Software Engineer"}
+                  {user?.desiredPosition || "Chưa cập nhật"}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm">
                 <span className="text-gray-500">Địa điểm</span>
                 <span className="font-semibold text-gray-800">
-                  {user?.address || "Hà Nội"}
+                  {user?.address || "Chưa cập nhật"}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm">
                 <span className="text-gray-500">Mức lương</span>
-                <span className="font-bold text-emerald-600">20M - 35M</span>
+                <span className="font-bold text-emerald-600">
+                  {formatExpectedSalary(user?.expectedSalary)}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm">
+                <span className="text-gray-500">Kỹ năng</span>
+                <span className="font-semibold text-gray-800 text-right line-clamp-2">
+                  {user?.skills || "Chưa cập nhật"}
+                </span>
               </div>
             </div>
           </div>

@@ -17,7 +17,6 @@ import {
   UserPlus,
   Newspaper,
   Info,
-  Bell,
 } from "lucide-react";
 import NotificationBell from "@/components/common/NotificationBell";
 import EmployerRegisterModal from "@/components/common/EmployerRegisterModal";
