@@ -95,14 +95,18 @@ export default function ManageJobsPage() {
       total: totalElements,
       pending: jobs.filter((job) => job.status === "PENDING").length,
       approved: jobs.filter((job) => job.status === "APPROVED").length,
+      expired: jobs.filter((job) => job.status === "EXPIRED").length,
+      closed: jobs.filter((job) => job.status === "CLOSED").length,
       rejected: jobs.filter((job) => job.status === "REJECTED").length,
     };
   }, [jobs, totalElements]);
 
   const handleUpdateStatus = async (jobId, newStatus) => {
     const actionMap = {
-      APPROVED: "duyệt",
+      APPROVED: "duyệt/mở khóa",
       REJECTED: "từ chối/khóa",
+      EXPIRED: "chuyển hết hạn",
+      CLOSED: "đóng",
     };
 
     const confirmMessage = `Bạn có chắc muốn ${
@@ -148,13 +152,17 @@ export default function ManageJobsPage() {
         label: "Đang hiển thị",
         className: "bg-emerald-50 text-emerald-700 border-emerald-100",
       },
-      REJECTED: {
-        label: "Bị khóa",
+      EXPIRED: {
+        label: "Hết hạn",
         className: "bg-red-50 text-red-700 border-red-100",
       },
       CLOSED: {
         label: "Đã đóng",
         className: "bg-gray-50 text-gray-700 border-gray-100",
+      },
+      REJECTED: {
+        label: "Bị khóa",
+        className: "bg-red-50 text-red-700 border-red-100",
       },
     };
 
@@ -165,7 +173,7 @@ export default function ManageJobsPage() {
 
     return (
       <span
-        className={`inline-flex items-center justify-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-bold ${current.className}`}
+        className={`inline-flex items-center justify-center whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold ${current.className}`}
       >
         {current.label}
       </span>
@@ -190,13 +198,13 @@ export default function ManageJobsPage() {
     const isCurrentUpdating = updatingId === job.id;
 
     return (
-      <div className="grid w-full grid-cols-2 gap-2">
+      <div className="grid w-full grid-cols-2 gap-1.5">
         <button
           type="button"
           onClick={() => setSelectedJobId(job.id)}
-          className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-blue-50 px-3 text-sm font-semibold text-blue-600 transition hover:bg-blue-100"
+          className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-blue-50 px-2 text-xs font-bold text-blue-600 transition hover:bg-blue-100"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-3.5 w-3.5" />
           Chi tiết
         </button>
 
@@ -206,12 +214,12 @@ export default function ManageJobsPage() {
               type="button"
               disabled={isCurrentUpdating}
               onClick={() => handleUpdateStatus(job.id, "APPROVED")}
-              className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isCurrentUpdating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <ShieldCheck className="h-4 w-4" />
+                <ShieldCheck className="h-3.5 w-3.5" />
               )}
               Duyệt
             </button>
@@ -220,12 +228,12 @@ export default function ManageJobsPage() {
               type="button"
               disabled={isCurrentUpdating}
               onClick={() => handleUpdateStatus(job.id, "REJECTED")}
-              className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-red-50 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-red-50 px-2 text-xs font-bold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isCurrentUpdating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <ShieldX className="h-4 w-4" />
+                <ShieldX className="h-3.5 w-3.5" />
               )}
               Từ chối
             </button>
@@ -237,12 +245,12 @@ export default function ManageJobsPage() {
             type="button"
             disabled={isCurrentUpdating}
             onClick={() => handleUpdateStatus(job.id, "REJECTED")}
-            className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-red-50 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-red-50 px-2 text-xs font-bold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isCurrentUpdating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <ShieldX className="h-4 w-4" />
+              <ShieldX className="h-3.5 w-3.5" />
             )}
             Khóa
           </button>
@@ -253,14 +261,30 @@ export default function ManageJobsPage() {
             type="button"
             disabled={isCurrentUpdating}
             onClick={() => handleUpdateStatus(job.id, "APPROVED")}
-            className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-emerald-50 px-3 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-emerald-50 px-2 text-xs font-bold text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isCurrentUpdating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck className="h-3.5 w-3.5" />
             )}
             Mở khóa
+          </button>
+        )}
+
+        {(job.status === "EXPIRED" || job.status === "CLOSED") && (
+          <button
+            type="button"
+            disabled={isCurrentUpdating}
+            onClick={() => handleUpdateStatus(job.id, "APPROVED")}
+            className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-emerald-50 px-2 text-xs font-bold text-emerald-600 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isCurrentUpdating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5" />
+            )}
+            Mở lại
           </button>
         )}
       </div>
@@ -302,17 +326,19 @@ export default function ManageJobsPage() {
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <SummaryCard label="Tổng tin" value={stats.total} />
           <SummaryCard label="Chờ duyệt" value={stats.pending} />
           <SummaryCard label="Đang hiển thị" value={stats.approved} />
+          <SummaryCard label="Hết hạn" value={stats.expired} />
+          <SummaryCard label="Đã đóng" value={stats.closed} />
           <SummaryCard label="Bị khóa" value={stats.rejected} />
         </div>
       </section>
 
       {/* FILTER */}
       <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_240px_auto] lg:items-center">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px_auto] lg:items-center">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
@@ -338,6 +364,8 @@ export default function ManageJobsPage() {
               <option value="">Tất cả trạng thái</option>
               <option value="PENDING">Chờ duyệt</option>
               <option value="APPROVED">Đang hiển thị</option>
+              <option value="EXPIRED">Hết hạn</option>
+              <option value="CLOSED">Đã đóng</option>
               <option value="REJECTED">Bị khóa</option>
             </select>
           </div>
@@ -403,22 +431,22 @@ export default function ManageJobsPage() {
 
             {/* DESKTOP TABLE */}
             <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1050px] table-fixed text-left">
+              <table className="w-full min-w-[900px] table-fixed text-left">
                 <colgroup>
-                  <col className="w-[8%]" />
-                  <col className="w-[34%]" />
-                  <col className="w-[24%]" />
-                  <col className="w-[13%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[33%]" />
+                  <col className="w-[25%]" />
+                  <col className="w-[14%]" />
                   <col className="w-[21%]" />
                 </colgroup>
 
                 <thead className="border-b border-gray-100 bg-gray-50">
-                  <tr className="text-sm text-gray-500">
-                    <th className="px-6 py-4 font-semibold">ID</th>
-                    <th className="px-6 py-4 font-semibold">Tin tuyển dụng</th>
-                    <th className="px-6 py-4 font-semibold">Công ty</th>
-                    <th className="px-6 py-4 font-semibold">Trạng thái</th>
-                    <th className="px-6 py-4 text-center font-semibold">
+                  <tr className="text-xs text-gray-500">
+                    <th className="px-4 py-3 font-bold">ID</th>
+                    <th className="px-4 py-3 font-bold">Tin tuyển dụng</th>
+                    <th className="px-4 py-3 font-bold">Công ty</th>
+                    <th className="px-4 py-3 font-bold">Trạng thái</th>
+                    <th className="px-4 py-3 text-center font-bold">
                       Hành động
                     </th>
                   </tr>
@@ -430,23 +458,23 @@ export default function ManageJobsPage() {
                       key={job.id}
                       className="transition-colors hover:bg-gray-50/70"
                     >
-                      <td className="px-6 py-5 align-top">
-                        <span className="text-sm font-semibold text-gray-500">
+                      <td className="px-4 py-3 align-top">
+                        <span className="text-xs font-bold text-gray-500">
                           #{job.id}
                         </span>
                       </td>
 
-                      <td className="px-6 py-5 align-top">
+                      <td className="px-4 py-3 align-top">
                         <div className="min-w-0 overflow-hidden">
                           <h3
-                            className="truncate font-bold leading-6 text-gray-900"
+                            className="truncate text-sm font-bold leading-5 text-gray-900"
                             title={job.title || "Tin tuyển dụng chưa có tiêu đề"}
                           >
                             {job.title || "Tin tuyển dụng chưa có tiêu đề"}
                           </h3>
 
-                          <div className="mt-2 flex min-w-0 items-center gap-2 text-sm text-gray-500">
-                            <Clock3 className="h-4 w-4 shrink-0" />
+                          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-gray-500">
+                            <Clock3 className="h-3.5 w-3.5 shrink-0" />
 
                             <span className="truncate">
                               Ngày đăng: {formatDate(job.createdAt)}
@@ -455,8 +483,8 @@ export default function ManageJobsPage() {
                         </div>
                       </td>
 
-                      <td className="px-6 py-5 align-top">
-                        <div className="flex min-w-0 max-w-[260px] items-center gap-2 text-sm text-gray-700">
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex min-w-0 max-w-[250px] items-center gap-2 text-sm text-gray-700">
                           <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
 
                           <span
@@ -468,12 +496,12 @@ export default function ManageJobsPage() {
                         </div>
                       </td>
 
-                      <td className="px-6 py-5 align-top">
+                      <td className="px-4 py-3 align-top">
                         {renderStatusBadge(job.status)}
                       </td>
 
-                      <td className="px-6 py-5 align-top">
-                        <div className="mx-auto w-[210px]">
+                      <td className="px-4 py-3 align-top">
+                        <div className="mx-auto w-[170px]">
                           {renderActionButtons(job)}
                         </div>
                       </td>
@@ -486,7 +514,7 @@ export default function ManageJobsPage() {
         )}
 
         {/* PAGINATION */}
-        <div className="flex flex-col gap-4 border-t border-gray-100 bg-gray-50/40 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex flex-col gap-4 border-t border-gray-100 bg-gray-50/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="text-center text-sm text-gray-600 sm:text-left">
             Trang{" "}
             <span className="font-semibold text-gray-900">{page + 1}</span> /{" "}

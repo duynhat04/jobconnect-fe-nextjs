@@ -8,6 +8,7 @@ const api = axios.create({
 });
 
 let isRefreshing = false;
+let isForceLoggingOut = false;
 let refreshSubscribers = [];
 
 const subscribeTokenRefresh = (cb) => {
@@ -37,10 +38,12 @@ api.interceptors.request.use(
 
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -54,10 +57,11 @@ api.interceptors.response.use(
       if (res.data.success) {
         return res.data.data; // Lấy ruột bên trong data
       }
+
       return Promise.reject(new Error(res.data.message || "Lỗi API từ server"));
     }
 
-    // 2. CHÚ Ý Ở ĐÂY: Nếu Backend KHÔNG bọc (như API Login), phải trả về res.data
+    // 2. Nếu Backend KHÔNG bọc, trả về res.data
     return res.data;
   },
   async (error) => {
@@ -91,15 +95,21 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem("refreshToken")?.replace(/['"]+/g, "");
+      const refreshToken = localStorage
+        .getItem("refreshToken")
+        ?.replace(/['"]+/g, "");
 
       if (refreshToken) {
         try {
-          const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/users/refresh-token`, {
-            refreshToken,
-          });
+          const res = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/users/refresh-token`,
+            {
+              refreshToken,
+            }
+          );
 
           const newToken = res.data.token;
+
           if (newToken) {
             localStorage.setItem("token", newToken);
             isRefreshing = false;
@@ -108,13 +118,23 @@ api.interceptors.response.use(
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             return api(originalRequest);
           }
+
+          handleLogoutForce(
+            "Bạn đã hết thời gian đăng nhập. Vui lòng đăng nhập lại!"
+          );
         } catch (err) {
           isRefreshing = false;
-          handleLogoutForce();
+
+          handleLogoutForce(
+            "Bạn đã hết thời gian đăng nhập. Vui lòng đăng nhập lại!"
+          );
+
           return Promise.reject(err);
         }
       } else {
-        handleLogoutForce();
+        handleLogoutForce(
+          "Bạn đã hết thời gian đăng nhập. Vui lòng đăng nhập lại!"
+        );
       }
     }
 
@@ -129,16 +149,27 @@ api.interceptors.response.use(
   }
 );
 
-const handleLogoutForce = () => {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    toast.error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!");
-    setTimeout(() => {
-      window.location.href = "/login";
-    }, 1500);
-  }
+const handleLogoutForce = (
+  message = "Bạn đã hết thời gian đăng nhập. Vui lòng đăng nhập lại!"
+) => {
+  if (typeof window === "undefined") return;
+
+  if (isForceLoggingOut) return;
+
+  isForceLoggingOut = true;
+  isRefreshing = false;
+  refreshSubscribers = [];
+
+  localStorage.removeItem("token");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+
+  toast.error(message);
+
+  setTimeout(() => {
+    window.location.href = "/login";
+  }, 1500);
 };
 
 export default api;

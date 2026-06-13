@@ -14,7 +14,10 @@ import {
   AlertCircle,
   Loader2,
   BriefcaseBusiness,
+  ArrowRight,
 } from "lucide-react";
+
+const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/;
 
 const validateStrongPassword = (password) => {
   if (!password || password.trim() === "") {
@@ -41,7 +44,7 @@ const validateStrongPassword = (password) => {
     return "Mật khẩu phải có ít nhất 1 chữ số!";
   }
 
-  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+  if (!SPECIAL_CHAR_REGEX.test(password)) {
     return "Mật khẩu phải có ít nhất 1 ký tự đặc biệt!";
   }
 
@@ -54,26 +57,42 @@ const passwordRules = [
     test: (password) => password.length >= 8,
   },
   {
-    label: "Có chữ thường",
+    label: "Chữ thường",
     test: (password) => /[a-z]/.test(password),
   },
   {
-    label: "Có chữ hoa",
+    label: "Chữ hoa",
     test: (password) => /[A-Z]/.test(password),
   },
   {
-    label: "Có chữ số",
+    label: "Chữ số",
     test: (password) => /\d/.test(password),
   },
   {
-    label: "Có ký tự đặc biệt",
-    test: (password) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+    label: "Ký tự đặc biệt",
+    test: (password) => SPECIAL_CHAR_REGEX.test(password),
   },
   {
-    label: "Không chứa khoảng trắng",
+    label: "Không khoảng trắng",
     test: (password) => password.length > 0 && !password.includes(" "),
   },
 ];
+
+const getApiData = (res) => {
+  return res?.data || res || {};
+};
+
+const getErrorMessage = (err) => {
+  const responseData = err?.response?.data;
+
+  return (
+    responseData?.message ||
+    responseData?.error ||
+    (typeof responseData === "string" ? responseData : "") ||
+    err?.message ||
+    "Đăng ký thất bại. Vui lòng thử lại!"
+  );
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -90,13 +109,13 @@ export default function RegisterPage() {
 
   const passwordError = validateStrongPassword(form.password);
   const isPasswordStrong = form.password.length > 0 && !passwordError;
+  const isConfirmPasswordInvalid =
+    form.confirmPassword.length > 0 && form.password !== form.confirmPassword;
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
+  const updateField = (field, value) => {
     setForm((prev) => ({
       ...prev,
-      [name]: value,
+      [field]: value,
     }));
 
     if (errorMessage) {
@@ -126,6 +145,7 @@ export default function RegisterPage() {
     }
 
     const strongPasswordError = validateStrongPassword(form.password);
+
     if (strongPasswordError) {
       showError(strongPasswordError);
       return;
@@ -136,70 +156,61 @@ export default function RegisterPage() {
       return;
     }
 
-    try {
-      setLoading(true);
-      setErrorMessage("");
+    setLoading(true);
+    setErrorMessage("");
 
-      const data = await register({
+    try {
+      const res = await register({
         fullName: cleanFullName,
         email: cleanEmail,
         password: form.password,
         confirmPassword: form.confirmPassword,
       });
 
-      if (data?.token) {
-        localStorage.setItem("token", data.token);
-      }
+      const data = getApiData(res);
+      const nextEmail = data?.email || cleanEmail;
 
-      if (data?.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken);
-      }
+      toast.success(
+        data?.message ||
+          "Đăng ký thành công! Vui lòng kiểm tra Gmail để lấy mã OTP."
+      );
 
-      if (data?.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
-
-      toast.success("Đăng ký thành công! Vui lòng xác thực OTP.");
-
-      router.push(`/verify-otp?email=${encodeURIComponent(cleanEmail)}`);
+      router.push(`/verify-otp?email=${encodeURIComponent(nextEmail)}`);
     } catch (err) {
-      console.error("CHI TIẾT LỖI:", err?.response?.data || err);
-
-      const errorMsg =
-        err.response?.data?.message || err.message || "Đăng ký thất bại";
-
-      showError(errorMsg);
+      console.error("Lỗi đăng ký:", err?.response?.data || err);
+      showError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-green-50 px-4 py-6 sm:py-10">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-green-50 px-4 py-6 sm:py-10">
       <div className="w-full max-w-md">
-        <div className="mb-5 sm:mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-200">
-            <BriefcaseBusiness className="h-7 w-7 sm:h-8 sm:w-8" />
-          </div>
+        {/* LOGO */}
+        <div className="mb-5 text-center sm:mb-6">
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600">
+          <h1 className="text-2xl font-extrabold tracking-tight text-emerald-600 sm:text-3xl">
             JOBCONNECT
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">
-            Cơ hội nghề nghiệp mới đang chờ bạn
+            Tạo tài khoản để bắt đầu hành trình sự nghiệp
           </p>
         </div>
 
-        <div className="rounded-2xl sm:rounded-3xl border border-gray-100 bg-white p-5 sm:p-8 shadow-xl">
+        {/* CARD */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xl sm:rounded-3xl sm:p-8">
+        
           <form onSubmit={handleSubmit} className="space-y-5">
             {errorMessage && (
               <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
                 <span className="leading-6">{errorMessage}</span>
               </div>
             )}
 
+            {/* FULL NAME */}
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
                 Họ và tên
@@ -210,16 +221,17 @@ export default function RegisterPage() {
 
                 <input
                   type="text"
-                  name="fullName"
                   required
+                  autoComplete="name"
                   value={form.fullName}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  onChange={(e) => updateField("fullName", e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
                   placeholder="Nguyễn Văn A"
                 />
               </div>
             </div>
 
+            {/* EMAIL */}
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
                 Email
@@ -230,16 +242,17 @@ export default function RegisterPage() {
 
                 <input
                   type="email"
-                  name="email"
                   required
+                  autoComplete="email"
                   value={form.email}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  onChange={(e) => updateField("email", e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500"
                   placeholder="email@example.com"
                 />
               </div>
             </div>
 
+            {/* PASSWORD */}
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
                 Mật khẩu
@@ -250,11 +263,11 @@ export default function RegisterPage() {
 
                 <input
                   type="password"
-                  name="password"
                   required
+                  autoComplete="new-password"
                   value={form.password}
-                  onChange={handleChange}
-                  className={`w-full rounded-xl border bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:bg-white focus:ring-2 ${
+                  onChange={(e) => updateField("password", e.target.value)}
+                  className={`w-full rounded-xl border bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:bg-white focus:ring-2 ${
                     form.password.length > 0 && !isPasswordStrong
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                       : "border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
@@ -269,7 +282,7 @@ export default function RegisterPage() {
                     Mật khẩu cần đáp ứng:
                   </p>
 
-                  <div className="mt-2 grid grid-cols-1 gap-1.5">
+                  <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                     {passwordRules.map((rule) => {
                       const passed = rule.test(form.password);
 
@@ -281,9 +294,9 @@ export default function RegisterPage() {
                           }`}
                         >
                           {passed ? (
-                            <CheckCircle className="h-3.5 w-3.5" />
+                            <CheckCircle className="h-3.5 w-3.5 shrink-0" />
                           ) : (
-                            <AlertCircle className="h-3.5 w-3.5" />
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                           )}
 
                           <span>{rule.label}</span>
@@ -295,6 +308,7 @@ export default function RegisterPage() {
               )}
             </div>
 
+            {/* CONFIRM PASSWORD */}
             <div>
               <label className="mb-1 ml-1 block text-sm font-semibold text-gray-700">
                 Xác nhận mật khẩu
@@ -305,13 +319,14 @@ export default function RegisterPage() {
 
                 <input
                   type="password"
-                  name="confirmPassword"
                   required
+                  autoComplete="new-password"
                   value={form.confirmPassword}
-                  onChange={handleChange}
-                  className={`w-full rounded-xl border bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all focus:bg-white focus:ring-2 ${
-                    form.confirmPassword &&
-                    form.password !== form.confirmPassword
+                  onChange={(e) =>
+                    updateField("confirmPassword", e.target.value)
+                  }
+                  className={`w-full rounded-xl border bg-gray-50 py-3 pl-10 pr-4 text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:bg-white focus:ring-2 ${
+                    isConfirmPasswordInvalid
                       ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                       : "border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
                   }`}
@@ -319,18 +334,18 @@ export default function RegisterPage() {
                 />
               </div>
 
-              {form.confirmPassword &&
-                form.password !== form.confirmPassword && (
-                  <p className="mt-1 text-xs font-medium text-red-500">
-                    Mật khẩu xác nhận không khớp.
-                  </p>
-                )}
+              {isConfirmPasswordInvalid && (
+                <p className="mt-1.5 text-xs font-medium text-red-500">
+                  Mật khẩu xác nhận không khớp.
+                </p>
+              )}
             </div>
 
+            {/* SUBMIT */}
             <button
               type="submit"
               disabled={loading}
-              className={`mt-2 flex w-full items-center justify-center rounded-xl py-3 font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
+              className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-bold text-white shadow-lg transition-all active:scale-[0.98] ${
                 loading
                   ? "cursor-not-allowed bg-emerald-400"
                   : "bg-emerald-600 shadow-emerald-200 hover:bg-emerald-700"
@@ -342,16 +357,34 @@ export default function RegisterPage() {
                   Đang tạo tài khoản...
                 </span>
               ) : (
-                "Đăng ký ngay"
+                <>
+                  Đăng ký ngay
+                  
+                </>
               )}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+
+            <span className="text-xs font-medium uppercase text-gray-400">
+              Xác thực OTP
+            </span>
+
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center text-sm leading-6 text-emerald-700">
+            Sau khi đăng ký, bạn cần nhập mã OTP được gửi đến Gmail để kích hoạt
+            tài khoản.
+          </div>
 
           <div className="mt-8 border-t border-gray-100 pt-6 text-center text-sm text-gray-600">
             Đã có tài khoản?{" "}
             <Link
               href="/login"
-              className="font-bold text-emerald-600 transition-all hover:underline"
+              className="font-bold text-emerald-600 hover:underline"
             >
               Đăng nhập
             </Link>

@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Be_Vietnam_Pro } from "next/font/google";
 import Link from "next/link";
 import api from "@/services/axios";
 import JobCard from "@/components/job/JobCard";
 import SearchBanner from "@/components/common/SearchBanner";
+import {
+  calculateProfilePercent,
+  getProfileRowStatus,
+} from "@/utils/profileCompletion";
 import {
   AlertCircle,
   Briefcase,
@@ -396,6 +400,22 @@ const StatCard = ({ item, loading, index }) => {
   );
 };
 
+const ProfileInfoRow = ({
+  label,
+  value,
+  valueClassName = "text-emerald-600",
+}) => (
+  <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+    <span className="text-[11px] font-semibold text-gray-600 sm:text-xs">
+      {label}
+    </span>
+
+    <span className={`text-[11px] font-bold sm:text-xs ${valueClassName}`}>
+      {value}
+    </span>
+  </div>
+);
+
 const GuestProfileCard = () => (
   <div className="relative h-full overflow-hidden rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
     <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-emerald-100 blur-3xl" />
@@ -458,77 +478,93 @@ const GuestProfileCard = () => (
   </div>
 );
 
-const ProfileInfoRow = ({ label, value, valueClassName = "text-emerald-600" }) => (
-  <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-    <span className="text-[11px] font-semibold text-gray-600 sm:text-xs">
-      {label}
-    </span>
+const LoggedInProfileCard = ({ profilePercent = 0, profileUser = null }) => {
+  const percent = Math.min(100, Math.max(0, Number(profilePercent || 0)));
+  const degree = Math.round((percent / 100) * 360);
+  const rowStatus = getProfileRowStatus(profileUser);
 
-    <span className={`text-[11px] font-bold sm:text-xs ${valueClassName}`}>
-      {value}
-    </span>
-  </div>
-);
+  return (
+    <div className="relative h-full overflow-hidden rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
+      <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-emerald-100 blur-3xl" />
+      <div className="absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-blue-100 blur-3xl" />
 
-const LoggedInProfileCard = () => (
-  <div className="relative h-full overflow-hidden rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
-    <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-emerald-100 blur-3xl" />
-    <div className="absolute -bottom-10 -left-10 h-24 w-24 rounded-full bg-blue-100 blur-3xl" />
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
+          <UserCheck className="h-3.5 w-3.5" />
+          Hồ sơ ứng viên
+        </div>
 
-    <div className="relative z-10 flex h-full flex-col">
-      <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
-        <UserCheck className="h-3.5 w-3.5" />
-        Hồ sơ ứng viên
-      </div>
+        <h3 className="text-[16px] font-bold leading-6 text-gray-900 sm:text-[18px]">
+          Hồ sơ đầy đủ giúp tăng cơ hội được chú ý
+        </h3>
 
-      <h3 className="text-[16px] font-bold leading-6 text-gray-900 sm:text-[18px]">
-        Hồ sơ đầy đủ giúp tăng cơ hội được chú ý
-      </h3>
+        <p className="mt-2 text-[13px] leading-6 text-gray-500 sm:text-sm">
+          Cập nhật kỹ năng, kinh nghiệm và CV để nhà tuyển dụng đánh giá bạn
+          nhanh hơn.
+        </p>
 
-      <p className="mt-2 text-[13px] leading-6 text-gray-500 sm:text-sm">
-        Cập nhật kỹ năng, kinh nghiệm và CV để nhà tuyển dụng đánh giá bạn nhanh
-        hơn.
-      </p>
+        <div className="my-4 flex flex-1 items-center justify-center sm:my-5">
+          <div className="relative flex h-[116px] w-[116px] items-center justify-center rounded-full bg-emerald-50 sm:h-[132px] sm:w-[132px]">
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: `conic-gradient(#10b981 0deg, #10b981 ${degree}deg, #e5e7eb ${degree}deg, #e5e7eb 360deg)`,
+              }}
+            />
 
-      <div className="my-4 flex flex-1 items-center justify-center sm:my-5">
-        <div className="relative flex h-[116px] w-[116px] items-center justify-center rounded-full bg-emerald-50 sm:h-[132px] sm:w-[132px]">
-          <div className="absolute inset-0 rounded-full bg-[conic-gradient(#10b981_0deg,#10b981_270deg,#e5e7eb_270deg,#e5e7eb_360deg)]" />
+            <div className="relative flex h-[88px] w-[88px] flex-col items-center justify-center rounded-full bg-white shadow-inner sm:h-[102px] sm:w-[102px]">
+              <span className="text-2xl font-extrabold text-emerald-600 sm:text-3xl">
+                {percent}%
+              </span>
 
-          <div className="relative flex h-[88px] w-[88px] flex-col items-center justify-center rounded-full bg-white shadow-inner sm:h-[102px] sm:w-[102px]">
-            <span className="text-2xl font-extrabold text-emerald-600 sm:text-3xl">
-              75%
-            </span>
-
-            <span className="mt-1 text-[10px] font-bold text-gray-500">
-              Hoàn thiện
-            </span>
+              <span className="mt-1 text-[10px] font-bold text-gray-500">
+                Hoàn thiện
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-2">
-        <ProfileInfoRow label="Thông tin cá nhân" value="Đã có" />
-        <ProfileInfoRow label="Kỹ năng / kinh nghiệm" value="Cần cập nhật" />
-        <ProfileInfoRow
-          label="CV ứng tuyển"
-          value="Quan trọng"
-          valueClassName="text-amber-600"
-        />
-      </div>
+        <div className="grid grid-cols-1 gap-2">
+          <ProfileInfoRow
+            label="Thông tin cá nhân"
+            value={rowStatus.personal}
+            valueClassName={rowStatus.personalClass}
+          />
 
-      <Link
-        href="/profile"
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-[13px] font-bold text-white transition hover:bg-emerald-700 sm:text-sm"
-      >
-        Hoàn thiện hồ sơ
-        <ArrowRight className="h-4 w-4" />
-      </Link>
+          <ProfileInfoRow
+            label="Kỹ năng / kinh nghiệm"
+            value={rowStatus.skill}
+            valueClassName={rowStatus.skillClass}
+          />
+
+          <ProfileInfoRow
+            label="CV ứng tuyển"
+            value={rowStatus.cv}
+            valueClassName={rowStatus.cvClass}
+          />
+        </div>
+
+        <Link
+          href="/profile"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-[13px] font-bold text-white transition hover:bg-emerald-700 sm:text-sm"
+        >
+          Hoàn thiện hồ sơ
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-const ProfileActionCard = ({ isLoggedIn }) => {
-  return isLoggedIn ? <LoggedInProfileCard /> : <GuestProfileCard />;
+const ProfileActionCard = ({ isLoggedIn, profilePercent, profileUser }) => {
+  return isLoggedIn ? (
+    <LoggedInProfileCard
+      profilePercent={profilePercent}
+      profileUser={profileUser}
+    />
+  ) : (
+    <GuestProfileCard />
+  );
 };
 
 export default function HomePage() {
@@ -547,11 +583,13 @@ export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [categoryPage, setCategoryPage] = useState(0);
 
+  const [profileUser, setProfileUser] = useState(null);
+  const [profilePercent, setProfilePercent] = useState(0);
+
   const homeStats = useMemo(() => buildStats(statsData), [statsData]);
 
   const normalizedCategories = useMemo(() => {
     const source = categoryList?.length ? categoryList : fallbackCategories;
-
     return source.map((item, index) => normalizeCategory(item, index));
   }, [categoryList]);
 
@@ -561,6 +599,39 @@ export default function HomePage() {
 
   const currentCategories =
     categorySlides[categoryPage] || categorySlides[0] || [];
+
+  const fetchCurrentProfile = useCallback(async () => {
+    if (!checkAuthStatus()) {
+      setProfileUser(null);
+      setProfilePercent(0);
+      return;
+    }
+
+    try {
+      const res = await api.get("/users/profile");
+      const raw = getApiData(res);
+      const data = raw?.data || raw;
+
+      setProfileUser(data);
+      setProfilePercent(calculateProfilePercent(data));
+    } catch (err) {
+      console.error("Lỗi lấy hồ sơ người dùng:", err);
+
+      try {
+        const storedUser = localStorage.getItem("user");
+        const parsedUser =
+          storedUser && storedUser !== "undefined" && storedUser !== "null"
+            ? JSON.parse(storedUser)
+            : null;
+
+        setProfileUser(parsedUser);
+        setProfilePercent(calculateProfilePercent(parsedUser));
+      } catch {
+        setProfileUser(null);
+        setProfilePercent(0);
+      }
+    }
+  }, []);
 
   const fetchJobs = async () => {
     try {
@@ -670,10 +741,25 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    setIsLoggedIn(checkAuthStatus());
+    const loggedIn = checkAuthStatus();
+
+    setIsLoggedIn(loggedIn);
+
+    if (loggedIn) {
+      fetchCurrentProfile();
+    }
 
     const handleStorageChange = () => {
-      setIsLoggedIn(checkAuthStatus());
+      const currentLoggedIn = checkAuthStatus();
+
+      setIsLoggedIn(currentLoggedIn);
+
+      if (currentLoggedIn) {
+        fetchCurrentProfile();
+      } else {
+        setProfileUser(null);
+        setProfilePercent(0);
+      }
     };
 
     window.addEventListener("storage", handleStorageChange);
@@ -681,7 +767,7 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, []);
+  }, [fetchCurrentProfile]);
 
   useEffect(() => {
     fetchJobs();
@@ -929,7 +1015,11 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[330px_1fr] xl:grid-cols-[360px_1fr]">
-            <ProfileActionCard isLoggedIn={isLoggedIn} />
+            <ProfileActionCard
+              isLoggedIn={isLoggedIn}
+              profilePercent={profilePercent}
+              profileUser={profileUser}
+            />
 
             <div className="grid grid-cols-1 gap-3">
               {steps.map((step, index) => {

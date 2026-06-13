@@ -854,60 +854,6 @@ export default function UserProfile() {
                 />
               </div>
 
-              <div>
-                <label className={labelClass}>Mức lương mong muốn</label>
-                <input
-                  type="number"
-                  min="0"
-                  disabled={!isEditing}
-                  value={profile.expectedSalary}
-                  onChange={(event) =>
-                    updateField("expectedSalary", event.target.value)
-                  }
-                  className={inputClass}
-                  placeholder="VD: 12000000"
-                />
-
-                {!isEditing && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    {formatSalaryPreview(profile.expectedSalary)}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className={labelClass}>Hình thức làm việc</label>
-                <select
-                  disabled={!isEditing}
-                  value={profile.workType}
-                  onChange={(event) =>
-                    updateField("workType", event.target.value)
-                  }
-                  className={inputClass}
-                >
-                  <option value="">Chưa chọn</option>
-                  <option value="Full-time">Full-time</option>
-                  <option value="Part-time">Part-time</option>
-                  <option value="Remote">Remote</option>
-                  <option value="Hybrid">Hybrid</option>
-                  <option value="Internship">Internship</option>
-                </select>
-              </div>
-
-              <div>
-                <label className={labelClass}>Có thể bắt đầu</label>
-                <input
-                  type="text"
-                  disabled={!isEditing}
-                  value={profile.availableFrom}
-                  onChange={(event) =>
-                    updateField("availableFrom", event.target.value)
-                  }
-                  className={inputClass}
-                  placeholder="VD: Có thể đi làm ngay / Sau 2 tuần"
-                />
-              </div>
-
               <UrlInput
                 label="Portfolio / Website cá nhân"
                 icon={LinkIcon}
@@ -1138,10 +1084,6 @@ export default function UserProfile() {
                 }
               />
 
-              <SummaryLine
-                icon={Wallet}
-                text={formatSalaryPreview(profile.expectedSalary)}
-              />
 
               <SummaryLine
                 icon={MapPin}
@@ -1160,19 +1102,13 @@ export default function UserProfile() {
                 }
               />
 
-              <SummaryLine
-                icon={CalendarDays}
-                text={
-                  profile.availableFrom || "Chưa cập nhật thời gian bắt đầu"
-                }
-              />
 
               <SummaryLine
                 icon={LinkIcon}
                 text={
                   profile.portfolioUrl
-                    ? "Đã cập nhật portfolio"
-                    : "Chưa cập nhật portfolio"
+                    ? "Đã cập nhật website/portfolio"
+                    : "Chưa cập nhật website/portfolio"
                 }
               />
 

@@ -134,7 +134,9 @@ export default function JobDetailPage() {
 
   const getDeadlineText = (item) => {
     if (item?.closed) return "Tin tuyển dụng đã đóng";
-    if (item?.expired) return "Tin tuyển dụng đã hết hạn";
+    if (item?.status === "EXPIRED" || item?.expired) {
+      return "Tin tuyển dụng đã hết hạn";
+    }
 
     if (item?.daysRemaining !== null && item?.daysRemaining !== undefined) {
       if (Number(item.daysRemaining) === 0) return "Hết hạn hôm nay";
@@ -148,7 +150,7 @@ export default function JobDetailPage() {
 
   const getStatusText = (item) => {
     if (item?.closed) return "Đã đóng tuyển";
-    if (item?.expired) return "Đã hết hạn";
+    if (item?.status === "EXPIRED" || item?.expired) return "Đã hết hạn";
 
     if (item?.status === "PENDING") return "Chờ duyệt";
     if (item?.status === "REJECTED") return "Bị từ chối";
@@ -158,12 +160,19 @@ export default function JobDetailPage() {
   };
 
   const canApplyJob = (item) => {
-    return item?.status === "APPROVED" && !item?.expired && !item?.closed;
+    return (
+      item?.status === "APPROVED" &&
+      item?.status !== "EXPIRED" &&
+      !item?.expired &&
+      !item?.closed
+    );
   };
 
   const getDisabledApplyMessage = (item) => {
     if (item?.closed) return "Tin tuyển dụng đã đóng";
-    if (item?.expired) return "Tin tuyển dụng đã hết hạn";
+    if (item?.status === "EXPIRED" || item?.expired) {
+      return "Tin tuyển dụng đã hết hạn";
+    }
     if (item?.status === "PENDING") return "Tin đang chờ duyệt";
     if (item?.status === "REJECTED") return "Tin đã bị từ chối";
 
@@ -372,8 +381,8 @@ export default function JobDetailPage() {
 
                   <span
                     className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${isApplyAvailable
-                        ? "bg-emerald-600 text-white"
-                        : "bg-red-100 text-red-600"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-red-100 text-red-600"
                       }`}
                   >
                     <AlertCircle className="h-4 w-4" />
@@ -442,8 +451,8 @@ export default function JobDetailPage() {
                   onClick={handleApplyClick}
                   disabled={!isApplyAvailable}
                   className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${isApplyAvailable
-                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                      : "cursor-not-allowed bg-gray-100 text-gray-400"
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "cursor-not-allowed bg-gray-100 text-gray-400"
                     }`}
                 >
                   {isApplyAvailable ? (
@@ -528,8 +537,8 @@ export default function JobDetailPage() {
                     onClick={handleApplyClick}
                     disabled={!isApplyAvailable}
                     className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${isApplyAvailable
-                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                        : "cursor-not-allowed bg-gray-100 text-gray-400"
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : "cursor-not-allowed bg-gray-100 text-gray-400"
                       }`}
                   >
                     {isApplyAvailable ? (

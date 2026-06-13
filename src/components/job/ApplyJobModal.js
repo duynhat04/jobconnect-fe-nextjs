@@ -18,7 +18,6 @@ import {
   Wallet,
   GraduationCap,
   Languages,
-  MapPin,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -27,6 +26,8 @@ import {
 export default function ApplyJobModal({
   jobId,
   jobTitle,
+  canApply = true,
+  disabledReason = "Không thể ứng tuyển công việc này!",
   onClose,
   onSuccess,
 }) {
@@ -152,6 +153,11 @@ export default function ApplyJobModal({
 
     if (isSubmitting) return;
 
+    if (!canApply) {
+      setError(disabledReason);
+      return;
+    }
+
     if (!jobId) {
       setError("Không tìm thấy công việc cần ứng tuyển!");
       return;
@@ -228,6 +234,7 @@ export default function ApplyJobModal({
 
   const formatExperience = (value) => {
     if (value === null || value === undefined || value === "") return "";
+
     return `${value} năm kinh nghiệm`;
   };
 
@@ -280,7 +287,9 @@ export default function ApplyJobModal({
   };
 
   const profileFields = getProfileFields();
-  const previewFields = showFullProfile ? profileFields : profileFields.slice(0, 4);
+  const previewFields = showFullProfile
+    ? profileFields
+    : profileFields.slice(0, 4);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 py-4 backdrop-blur-sm sm:p-4">
@@ -309,13 +318,24 @@ export default function ApplyJobModal({
         </div>
 
         {/* BODY */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto p-4 sm:p-6"
+        >
           <div className="space-y-5">
             {/* ERROR */}
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
                 <span className="leading-6">{error}</span>
+              </div>
+            )}
+
+            {/* DISABLED APPLY WARNING */}
+            {!canApply && (
+              <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                <span className="leading-6">{disabledReason}</span>
               </div>
             )}
 
@@ -333,7 +353,7 @@ export default function ApplyJobModal({
                 </div>
 
                 <Link
-                  href="/candidate/profile"
+                  href="/profile"
                   className="inline-flex w-fit items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800"
                 >
                   Cập nhật hồ sơ
@@ -397,7 +417,7 @@ export default function ApplyJobModal({
                   setApplyMethod("system");
                   setError("");
                 }}
-                disabled={loadingCVs || cvList.length === 0}
+                disabled={loadingCVs || cvList.length === 0 || !canApply}
                 className={`rounded-lg py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                   applyMethod === "system"
                     ? "bg-white text-emerald-600 shadow-sm"
@@ -413,7 +433,8 @@ export default function ApplyJobModal({
                   setApplyMethod("upload");
                   setError("");
                 }}
-                className={`rounded-lg py-2.5 text-sm font-semibold transition-all ${
+                disabled={!canApply}
+                className={`rounded-lg py-2.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                   applyMethod === "upload"
                     ? "bg-white text-emerald-600 shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
@@ -450,8 +471,9 @@ export default function ApplyJobModal({
                             type="radio"
                             name="cv"
                             checked={selectedCvId === cv.id}
+                            disabled={!canApply}
                             onChange={() => setSelectedCvId(cv.id)}
-                            className="mt-1 h-4 w-4 text-emerald-600"
+                            className="mt-1 h-4 w-4 text-emerald-600 disabled:opacity-50"
                           />
 
                           <div className="min-w-0 flex-1">
@@ -481,8 +503,9 @@ export default function ApplyJobModal({
                   {!newFile ? (
                     <button
                       type="button"
+                      disabled={!canApply}
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full rounded-xl border-2 border-dashed border-gray-300 p-8 text-center transition-all hover:border-emerald-500 hover:bg-emerald-50"
+                      className="w-full rounded-xl border-2 border-dashed border-gray-300 p-8 text-center transition-all hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <UploadCloud className="mx-auto mb-3 h-9 w-9 text-gray-400" />
 
@@ -498,7 +521,10 @@ export default function ApplyJobModal({
                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex min-w-0 items-center gap-3">
-                          <FileText className="shrink-0 text-red-500" size={24} />
+                          <FileText
+                            className="shrink-0 text-red-500"
+                            size={24}
+                          />
 
                           <div className="min-w-0">
                             <p className="break-words text-sm font-semibold text-emerald-800">
@@ -527,6 +553,7 @@ export default function ApplyJobModal({
                     ref={fileInputRef}
                     type="file"
                     accept=".pdf,application/pdf"
+                    disabled={!canApply}
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -543,9 +570,10 @@ export default function ApplyJobModal({
               <textarea
                 rows={4}
                 value={coverLetter}
+                disabled={!canApply}
                 onChange={(e) => setCoverLetter(e.target.value)}
                 placeholder="Giới thiệu ngắn gọn về kỹ năng, kinh nghiệm của bạn..."
-                className="w-full resize-none rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full resize-none rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
           </div>
@@ -564,17 +592,20 @@ export default function ApplyJobModal({
             <button
               type="submit"
               disabled={
+                !canApply ||
                 isSubmitting ||
                 (applyMethod === "system" && !selectedCvId) ||
                 (applyMethod === "upload" && !newFile)
               }
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 font-semibold text-white transition-all hover:bg-emerald-700 disabled:opacity-50 sm:flex-1"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 font-semibold text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
                   Đang nộp...
                 </>
+              ) : !canApply ? (
+                "Không thể ứng tuyển"
               ) : (
                 "Nộp hồ sơ"
               )}

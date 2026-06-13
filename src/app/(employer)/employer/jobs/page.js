@@ -21,6 +21,7 @@ import {
   Users,
   CheckCircle2,
   Lock,
+  Search,
 } from "lucide-react";
 
 import api from "@/services/axios";
@@ -33,6 +34,8 @@ export default function EmployerJobsPage() {
   const [closingId, setClosingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const fetchJobs = useCallback(async (silent = false) => {
     try {
@@ -49,8 +52,8 @@ export default function EmployerJobsPage() {
       const jobsData = Array.isArray(data)
         ? data
         : Array.isArray(data?.content)
-        ? data.content
-        : [];
+          ? data.content
+          : [];
 
       const sortedJobs = [...jobsData].sort((a, b) => {
         const dateA = new Date(a.createdAt || a.created_at || 0);
@@ -92,11 +95,17 @@ export default function EmployerJobsPage() {
   };
 
   const isJobExpired = (job) => {
+    if (job?.status === "EXPIRED") return true;
     if (job?.expired === true) return true;
 
     if (!job?.expiredAt) return false;
 
     const expiredDate = new Date(job.expiredAt);
+
+    if (Number.isNaN(expiredDate.getTime())) {
+      return false;
+    }
+
     expiredDate.setHours(0, 0, 0, 0);
 
     const today = new Date();
@@ -271,6 +280,77 @@ export default function EmployerJobsPage() {
     };
   };
 
+  const filterOptions = useMemo(
+    () => [
+      {
+        key: "ALL",
+        label: "Tất cả",
+        count: jobs.length,
+      },
+      {
+        key: "APPROVED",
+        label: "Đang tuyển",
+        count: stats.active,
+      },
+      {
+        key: "PENDING",
+        label: "Chờ duyệt",
+        count: stats.pending,
+      },
+      {
+        key: "EXPIRED",
+        label: "Hết hạn",
+        count: stats.expired,
+      },
+      {
+        key: "CLOSED",
+        label: "Đã đóng",
+        count: stats.closed,
+      },
+      {
+        key: "REJECTED",
+        label: "Từ chối",
+        count: jobs.filter((job) => job.status === "REJECTED").length,
+      },
+    ],
+    [jobs, stats]
+  );
+
+  const getJobFilterStatus = (job) => {
+    if (isJobClosed(job)) return "CLOSED";
+    if (isJobExpired(job)) return "EXPIRED";
+
+    return job?.status || "UNKNOWN";
+  };
+
+  const filteredJobs = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+
+    return jobs.filter((job) => {
+      const jobStatus = getJobFilterStatus(job);
+
+      const matchStatus =
+        statusFilter === "ALL" || jobStatus === statusFilter;
+
+      const searchableText = [
+        job?.title,
+        job?.location,
+        job?.category,
+        job?.employmentType,
+        job?.status,
+        job?.id,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchKeyword =
+        !keyword || searchableText.includes(keyword);
+
+      return matchStatus && matchKeyword;
+    });
+  }, [jobs, searchTerm, statusFilter]);
+
   const getEmploymentTypeText = (employmentType) => {
     if (employmentType === "FULL_TIME") return "Toàn thời gian";
     if (employmentType === "PART_TIME") return "Bán thời gian";
@@ -368,9 +448,8 @@ export default function EmployerJobsPage() {
               className="inline-flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white transition hover:bg-gray-50 disabled:opacity-60"
             >
               <RefreshCcw
-                className={`h-5 w-5 text-gray-500 ${
-                  refreshing ? "animate-spin" : ""
-                }`}
+                className={`h-5 w-5 text-gray-500 ${refreshing ? "animate-spin" : ""
+                  }`}
               />
             </button>
 
@@ -404,15 +483,55 @@ export default function EmployerJobsPage() {
 
       {/* CONTENT */}
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="flex flex-col gap-1 border-b border-gray-50 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div>
+        <div className="border-b border-gray-50 px-4 py-5 sm:px-6">
+          <div className="mb-4">
             <h2 className="text-base font-bold text-gray-900 sm:text-lg">
               Danh sách tin tuyển dụng
             </h2>
 
             <p className="mt-1 text-sm text-gray-400">
-              Tổng cộng {jobs.length} tin tuyển dụng
+              Hiển thị {filteredJobs.length} / {jobs.length} tin tuyển dụng
             </p>
+          </div>
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-[420px]">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Tên công việc, địa điểm, ngành nghề..."
+                className="h-12 w-full rounded-2xl border border-gray-200 bg-white pl-12 pr-4 text-sm font-medium text-gray-700 outline-none transition-all placeholder:text-gray-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+              />
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+              {filterOptions.map((option) => {
+                const active = statusFilter === option.key;
+
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setStatusFilter(option.key)}
+                    className={`inline-flex shrink-0 items-center justify-center rounded-full border px-4 py-2.5 text-sm font-bold transition-all ${active
+                        ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      }`}
+                  >
+                    {option.label}{" "}
+                    <span
+                      className={`ml-1.5 ${active ? "text-white/80" : "text-gray-400"
+                        }`}
+                    >
+                      ({option.count})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

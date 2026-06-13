@@ -131,7 +131,17 @@ export default function JobsClient() {
         params,
       });
 
-      setJobs(getArrayData(res));
+      const jobsList = getArrayData(res).filter((job) => {
+        if (!job) return false;
+
+        if (job.status === "EXPIRED") return false;
+        if (job.expired === true) return false;
+        if (job.closed === true) return false;
+
+        return true;
+      });
+
+      setJobs(jobsList);
     } catch (error) {
       console.error("Lỗi tải danh sách việc làm:", error);
 
