@@ -16,63 +16,16 @@ import {
   AlertCircle,
 } from "lucide-react";
 import JobCard from "@/components/job/JobCard";
+import {
+  JOB_CATEGORIES,
+  VIETNAM_PROVINCES,
+} from "@/constants/jobOptions";
 
 const vietnamFont = Be_Vietnam_Pro({
   subsets: ["vietnamese"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
-
-const JOB_CATEGORIES = [
-  "IT - Phần mềm",
-  "Marketing / Truyền thông",
-  "Kinh doanh / Bán hàng",
-  "Kế toán / Kiểm toán",
-  "Nhân sự",
-  "Thiết kế",
-  "Chăm sóc khách hàng",
-  "Giáo dục / Đào tạo",
-  "Tài chính / Ngân hàng",
-  "Khác",
-];
-
-const VIETNAM_PROVINCES = [
-  "Hà Nội",
-  "Huế",
-  "Hải Phòng",
-  "Đà Nẵng",
-  "Cần Thơ",
-  "Thành phố Hồ Chí Minh",
-  "Cao Bằng",
-  "Tuyên Quang",
-  "Lào Cai",
-  "Thái Nguyên",
-  "Phú Thọ",
-  "Bắc Ninh",
-  "Hưng Yên",
-  "Ninh Bình",
-  "Lai Châu",
-  "Điện Biên",
-  "Sơn La",
-  "Lạng Sơn",
-  "Quảng Ninh",
-  "Thanh Hóa",
-  "Nghệ An",
-  "Hà Tĩnh",
-  "Quảng Trị",
-  "Quảng Ngãi",
-  "Gia Lai",
-  "Khánh Hòa",
-  "Lâm Đồng",
-  "Đắk Lắk",
-  "Đồng Nai",
-  "Tây Ninh",
-  "Vĩnh Long",
-  "Đồng Tháp",
-  "Cà Mau",
-  "An Giang",
-  "Remote",
-];
 
 const getApiData = (res) => {
   return res?.data || res || {};
@@ -177,12 +130,12 @@ export default function JobsClient() {
       params.append("keyword", keyword.trim());
     }
 
-    if (location) {
-      params.append("location", location);
-    }
-
     if (category) {
       params.append("category", category);
+    }
+
+    if (location) {
+      params.append("location", location);
     }
 
     const queryString = params.toString();
