@@ -9,7 +9,6 @@ import ApplyJobModal from "@/components/job/ApplyJobModal";
 
 import {
   MapPin,
-  CircleDollarSign,
   CheckCircle2,
   Heart,
   Loader2,
@@ -21,7 +20,6 @@ import {
   ArrowLeft,
   CalendarDays,
   AlertCircle,
-  Users,
   Lock,
   Wallet,
   Layers,
@@ -85,6 +83,9 @@ export default function JobDetailPage() {
 
     if (type === "FULL_TIME") return "Toàn thời gian";
     if (type === "PART_TIME") return "Bán thời gian";
+    if (type === "REMOTE") return "Làm việc từ xa";
+    if (type === "HYBRID") return "Kết hợp";
+    if (type === "INTERNSHIP") return "Thực tập";
 
     return item?.jobType || "Chưa cập nhật";
   };
@@ -179,32 +180,79 @@ export default function JobDetailPage() {
     return "Không thể ứng tuyển";
   };
 
-  const handleApplyClick = () => {
+  const normalizeRole = (role) => {
+    return String(role || "")
+      .trim()
+      .toUpperCase()
+      .replace("ROLE_", "");
+  };
+
+  const getStoredUser = () => {
+    try {
+      const userString = localStorage.getItem("user");
+
+      if (userString && userString !== "undefined" && userString !== "null") {
+        return JSON.parse(userString);
+      }
+    } catch (error) {
+      console.error("Dữ liệu user trong localStorage bị lỗi:", error);
+      localStorage.removeItem("user");
+    }
+
+    return null;
+  };
+
+  const getAccessToken = () => {
+    return (
+      localStorage.getItem("token") ||
+      localStorage.getItem("accessToken") ||
+      localStorage.getItem("jwt")
+    );
+  };
+
+  const getCurrentUser = async () => {
+    const storedUser = getStoredUser();
+
+    try {
+      const profile = await api.get("/users/profile");
+      const profileData = profile?.data || profile;
+
+      if (profileData) {
+        localStorage.setItem("user", JSON.stringify(profileData));
+        return profileData;
+      }
+    } catch (error) {
+      console.error("Không lấy được profile hiện tại:", error);
+    }
+
+    return storedUser;
+  };
+
+  const handleApplyClick = async () => {
     if (!canApplyJob(job)) {
       toast.error(getDisabledApplyMessage(job));
       return;
     }
 
-    let user = null;
+    const token = getAccessToken();
 
-    try {
-      const userString = localStorage.getItem("user");
-
-      if (userString && userString !== "undefined" && userString !== "null") {
-        user = JSON.parse(userString);
-      }
-    } catch (e) {
-      console.error("Dữ liệu user bị lỗi:", e);
-      localStorage.removeItem("user");
-    }
-
-    if (!user) {
+    if (!token) {
       toast.error("Bạn cần đăng nhập để ứng tuyển công việc này!");
       router.push(`/login?callbackUrl=/jobs/${params.id}`);
       return;
     }
 
-    if (user.role !== "CANDIDATE") {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      toast.error("Không lấy được thông tin tài khoản. Vui lòng đăng nhập lại!");
+      router.push(`/login?callbackUrl=/jobs/${params.id}`);
+      return;
+    }
+
+    const role = normalizeRole(user.role);
+
+    if (role !== "CANDIDATE") {
       toast.error("Chỉ tài khoản Người tìm việc mới được ứng tuyển!");
       return;
     }
@@ -218,25 +266,25 @@ export default function JobDetailPage() {
       return;
     }
 
-    let user = null;
+    const token = getAccessToken();
 
-    try {
-      const userString = localStorage.getItem("user");
-
-      if (userString && userString !== "undefined" && userString !== "null") {
-        user = JSON.parse(userString);
-      }
-    } catch {
-      localStorage.removeItem("user");
-    }
-
-    if (!user) {
+    if (!token) {
       toast.error("Bạn cần đăng nhập để lưu công việc!");
       router.push(`/login?callbackUrl=/jobs/${params.id}`);
       return;
     }
 
-    if (user.role !== "CANDIDATE") {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      toast.error("Không lấy được thông tin tài khoản. Vui lòng đăng nhập lại!");
+      router.push(`/login?callbackUrl=/jobs/${params.id}`);
+      return;
+    }
+
+    const role = normalizeRole(user.role);
+
+    if (role !== "CANDIDATE") {
       toast.error("Chỉ tài khoản Người tìm việc mới được lưu công việc!");
       return;
     }
@@ -252,8 +300,8 @@ export default function JobDetailPage() {
 
       toast.error(
         error?.response?.data?.message ||
-        error?.message ||
-        "Không thể lưu công việc lúc này!"
+          error?.message ||
+          "Không thể lưu công việc lúc này!"
       );
     } finally {
       setSavingJob(false);
@@ -274,11 +322,11 @@ export default function JobDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 text-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+          <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
 
-          <p className="text-gray-500 font-medium">
+          <p className="font-medium text-gray-500">
             Đang tải thông tin công việc...
           </p>
         </div>
@@ -288,22 +336,22 @@ export default function JobDetailPage() {
 
   if (!job) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 text-center">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">
             Không tìm thấy công việc
           </h2>
 
-          <p className="text-gray-500 mt-2">
+          <p className="mt-2 text-gray-500">
             Công việc có thể đã bị xoá hoặc không tồn tại.
           </p>
 
           <button
             type="button"
             onClick={() => router.back()}
-            className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 font-semibold text-white"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Quay lại
           </button>
         </div>
@@ -380,10 +428,11 @@ export default function JobDetailPage() {
                   </div>
 
                   <span
-                    className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${isApplyAvailable
-                      ? "bg-emerald-600 text-white"
-                      : "bg-red-100 text-red-600"
-                      }`}
+                    className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ${
+                      isApplyAvailable
+                        ? "bg-emerald-600 text-white"
+                        : "bg-red-100 text-red-600"
+                    }`}
                   >
                     <AlertCircle className="h-4 w-4" />
                     {getStatusText(job)}
@@ -432,7 +481,7 @@ export default function JobDetailPage() {
             </section>
 
             {/* MOBILE APPLY QUICK */}
-            <section className="lg:hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:hidden">
               {!isApplyAvailable && (
                 <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -450,10 +499,11 @@ export default function JobDetailPage() {
                   type="button"
                   onClick={handleApplyClick}
                   disabled={!isApplyAvailable}
-                  className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${isApplyAvailable
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                    : "cursor-not-allowed bg-gray-100 text-gray-400"
-                    }`}
+                  className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${
+                    isApplyAvailable
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : "cursor-not-allowed bg-gray-100 text-gray-400"
+                  }`}
                 >
                   {isApplyAvailable ? (
                     "Ứng tuyển ngay"
@@ -487,7 +537,9 @@ export default function JobDetailPage() {
                 Kỹ năng / Yêu cầu nổi bật
               </h2>
 
-              <SkillTags text={`${job.requirements || ""} ${job.category || ""}`} />
+              <SkillTags
+                text={`${job.requirements || ""} ${job.category || ""}`}
+              />
             </section>
 
             {/* DESCRIPTION */}
@@ -514,8 +566,8 @@ export default function JobDetailPage() {
                   </h3>
 
                   <p className="mt-1 text-sm leading-6 text-gray-500">
-                    Gửi CV của bạn cho nhà tuyển dụng và theo dõi trạng thái hồ sơ
-                    trong trang cá nhân.
+                    Gửi CV của bạn cho nhà tuyển dụng và theo dõi trạng thái hồ
+                    sơ trong trang cá nhân.
                   </p>
                 </div>
 
@@ -536,10 +588,11 @@ export default function JobDetailPage() {
                     type="button"
                     onClick={handleApplyClick}
                     disabled={!isApplyAvailable}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${isApplyAvailable
-                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                      : "cursor-not-allowed bg-gray-100 text-gray-400"
-                      }`}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${
+                      isApplyAvailable
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                        : "cursor-not-allowed bg-gray-100 text-gray-400"
+                    }`}
                   >
                     {isApplyAvailable ? (
                       "Ứng tuyển ngay"
@@ -568,7 +621,10 @@ export default function JobDetailPage() {
 
                 <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 text-sm">
                   <SideRow label="Ngày đăng" value={formatDate(job.createdAt)} />
-                  <SideRow label="Hạn ứng tuyển" value={formatDate(job.expiredAt)} />
+                  <SideRow
+                    label="Hạn ứng tuyển"
+                    value={formatDate(job.expiredAt)}
+                  />
                   <SideRow label="Hình thức" value={getEmploymentTypeText(job)} />
                   <SideRow label="Trạng thái" value={getStatusText(job)} />
                   <SideRow
@@ -598,11 +654,11 @@ export default function JobDetailPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-bold text-gray-900 line-clamp-1">
+                    <p className="line-clamp-1 font-bold text-gray-900">
                       {companyName}
                     </p>
 
-                    <p className="text-sm text-gray-500 line-clamp-1">
+                    <p className="line-clamp-1 text-sm text-gray-500">
                       {job.companyAddress || "Chưa cập nhật địa chỉ"}
                     </p>
                   </div>
@@ -640,11 +696,11 @@ export default function JobDetailPage() {
             </div>
 
             <div className="min-w-0">
-              <p className="font-bold text-gray-900 line-clamp-1">
+              <p className="line-clamp-1 font-bold text-gray-900">
                 {companyName}
               </p>
 
-              <p className="text-sm text-gray-500 line-clamp-1">
+              <p className="line-clamp-1 text-sm text-gray-500">
                 {job.companyAddress || "Chưa cập nhật địa chỉ"}
               </p>
             </div>
@@ -724,9 +780,7 @@ function InfoItem({ icon: Icon, label, value }) {
         <p className="text-sm font-semibold text-gray-900">{label}</p>
       </div>
 
-      <p className="line-clamp-2 text-sm font-medium text-gray-600">
-        {value}
-      </p>
+      <p className="line-clamp-2 text-sm font-medium text-gray-600">{value}</p>
     </div>
   );
 }

@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, X, Send, Loader2, MessageCircle, Sparkles } from "lucide-react";
+import {
+  Bot,
+  X,
+  Send,
+  Loader2,
+  MessageCircle,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { sendAiChatMessage } from "@/services/aiService";
 
@@ -22,6 +31,8 @@ const DEFAULT_MESSAGES = [
   },
 ];
 
+const JOB_LINK_REGEX = /\[([^\]]+)\]\((\/jobs\/\d+)\)/g;
+
 const getUserFromStorage = () => {
   if (typeof window === "undefined") return null;
 
@@ -36,6 +47,104 @@ const getUserFromStorage = () => {
   } catch {
     return null;
   }
+};
+
+const normalizeRole = (role) => {
+  return String(role || "")
+    .trim()
+    .toUpperCase()
+    .replace("ROLE_", "");
+};
+
+const renderInlineJobLinks = (line = "", keyPrefix = "line") => {
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  JOB_LINK_REGEX.lastIndex = 0;
+
+  while ((match = JOB_LINK_REGEX.exec(line)) !== null) {
+    const beforeText = line.slice(lastIndex, match.index);
+
+    if (beforeText) {
+      parts.push(beforeText);
+    }
+
+    const title = match[1];
+    const href = match[2];
+
+    parts.push(
+      <Link
+        key={`${keyPrefix}-${href}-${match.index}`}
+        href={href}
+        className="font-bold text-emerald-600 underline underline-offset-2 hover:text-emerald-700"
+      >
+        {title}
+      </Link>
+    );
+
+    lastIndex = JOB_LINK_REGEX.lastIndex;
+  }
+
+  const afterText = line.slice(lastIndex);
+
+  if (afterText) {
+    parts.push(afterText);
+  }
+
+  return parts.length > 0 ? parts : line;
+};
+
+const renderAiMessage = (content = "") => {
+  const text = String(content || "");
+  const lines = text.split("\n");
+
+  return lines.map((line, index) => {
+    const match = line.match(/\[([^\]]+)\]\((\/jobs\/\d+)\)/);
+
+    if (!match) {
+      return (
+        <p key={`line-${index}`} className="whitespace-pre-wrap">
+          {line || "\u00A0"}
+        </p>
+      );
+    }
+
+    const title = match[1];
+    const href = match[2];
+
+    const extraText = line
+      .replace(match[0], "")
+      .replace(/^\s*[-•]\s*/g, "")
+      .trim();
+
+    return (
+      <Link
+        key={`job-link-${href}-${index}`}
+        href={href}
+        aria-label={`Mở chi tiết công việc ${title}`}
+        className="group my-2 block rounded-2xl border border-emerald-100 bg-emerald-50 p-3 transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-100/70 hover:shadow-sm"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 text-sm font-bold leading-5 text-gray-900 group-hover:text-emerald-700">
+              {title}
+            </p>
+
+            {extraText ? (
+              <p className="mt-1 text-xs font-medium leading-5 text-gray-600">
+                {extraText}
+              </p>
+            ) : null}
+          </div>
+
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm transition group-hover:bg-emerald-600 group-hover:text-white">
+            <ExternalLink className="h-3.5 w-3.5" />
+          </span>
+        </div>
+      </Link>
+    );
+  });
 };
 
 export default function FloatingAiChat() {
@@ -79,7 +188,7 @@ export default function FloatingAiChat() {
   }, [mounted, pathname]);
 
   const suggestions = useMemo(() => {
-    const role = user?.role;
+    const role = normalizeRole(user?.role);
 
     if (role === "ADMIN") {
       return [
@@ -230,13 +339,13 @@ export default function FloatingAiChat() {
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[82%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
+                    className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
                       isUser
-                        ? "rounded-br-md bg-emerald-600 text-white"
+                        ? "whitespace-pre-wrap rounded-br-md bg-emerald-600 text-white"
                         : "rounded-bl-md border border-gray-100 bg-white text-gray-700 shadow-sm"
                     }`}
                   >
-                    {msg.content}
+                    {isUser ? msg.content : renderAiMessage(msg.content)}
                   </div>
                 </div>
               );
@@ -296,7 +405,11 @@ export default function FloatingAiChat() {
         className="fixed bottom-5 right-4 z-[100] flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-700 sm:right-6"
         aria-label="Mở trợ lý AI"
       >
-        {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-7 w-7" />}
+        {isOpen ? (
+          <X className="h-6 w-6" />
+        ) : (
+          <MessageCircle className="h-7 w-7" />
+        )}
 
         {!isOpen && (
           <span className="absolute -right-1 -top-1 flex h-4 w-4">
